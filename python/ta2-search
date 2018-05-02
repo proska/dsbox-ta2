@@ -11,6 +11,11 @@ import sys
 import os
 import json
 import signal
+import sklearn.externals
+
+from dsbox.executer.executionhelper import ExecutionHelper
+from dsbox.planner.common.data_manager import Dataset, DataManager
+from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.controller import Controller, Feature
 from dsbox.planner.event_handler import PlannerEventHandler
 
@@ -74,7 +79,75 @@ ta2-search <search_config_file>
             sys.exit(148)
         pass
 
+    # Do testing
+    print()
+    for ppln in controller.exec_pipelines:
+        print(ppln, ppln.id, len(ppln.primitives))
+    print()
 
+    print(config)
+    print(config["problem_schema"])
+    print(config["dataset_schema"])
+
+    print(controller.pipelinesfile)
+
+    print()
+
+    problem = Problem()
+    problem.load_problem(config["problem_root"], config["problem_schema"])
+
+    print(problem)
+
+    # FIXME: considering test_data_root as training_data_root
+    if "test_data_root" not in config:
+        config["test_data_root"] = config["training_data_root"]
+
+    dataset = Dataset()
+    dataset.load_dataset(config["test_data_root"], config["dataset_schema"])
+
+    print(dataset)
+
+    data_manager = DataManager()
+    data_manager.initialize_data(problem, [dataset], view='TEST')
+
+    hp = ExecutionHelper(problem, data_manager)
+
+    initial_testdata = data_manager.input_data
+
+    print(initial_testdata.shape)                                               
+
+    print(config["temp_storage_root"])
+
+    for ppln in controller.exec_pipelines:
+        primfile_base = config["temp_storage_root"] + "/models/" + ppln.id
+        num_primitives = len(ppln.primitives)
+
+        print(primfile_base)
+
+        curr_testdata = initial_testdata.copy()
+        last_primitive = None
+
+        for i in range(num_primitives):
+            primfile = primfile_base + ".primitive_" + str(i + 1) + ".pkl"
+
+            print(primfile)
+
+            primitive = sklearn.externals.joblib.load(primfile)
+            last_primitive = primitive
+
+            if i == num_primitives - 1:
+                continue
+
+            new_testdata = hp.test_execute_primitive(primitive, curr_testdata)
+            curr_testdata = new_testdata.copy()
+
+        assert last_primitive != None
+
+        print(curr_testdata.shape)
+
+        print(last_primitive.executables.produce(inputs=curr_testdata).value[:10])
+        print(curr_testdata.index[:10])
+                                    
 if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-h")
