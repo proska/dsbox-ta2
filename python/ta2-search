@@ -9,6 +9,7 @@ path_setup()
 
 import sys
 import os
+import pandas
 import json
 import signal
 import sklearn.externals
@@ -114,15 +115,19 @@ ta2-search <search_config_file>
 
     initial_testdata = data_manager.input_data
 
-    print(initial_testdata.shape)                                               
+#    print(config["temp_storage_root"])
 
-    print(config["temp_storage_root"])
+#    print(data_manager.input_data)
+
+#    print(data_manager.target_data)
+
+     
 
     for ppln in controller.exec_pipelines:
         primfile_base = config["temp_storage_root"] + "/models/" + ppln.id
         num_primitives = len(ppln.primitives)
 
-        print(primfile_base)
+#        print(primfile_base)
 
         curr_testdata = initial_testdata.copy()
         last_primitive = None
@@ -130,23 +135,59 @@ ta2-search <search_config_file>
         for i in range(num_primitives):
             primfile = primfile_base + ".primitive_" + str(i + 1) + ".pkl"
 
-            print(primfile)
+#            print(primfile)
 
             primitive = sklearn.externals.joblib.load(primfile)
             last_primitive = primitive
 
-            if i == num_primitives - 1:
+#            print(primitive.task)
+
+#            if i == num_primitives - 1:
+#                continue
+
+            if primitive.task == "PreProcessing":
+                new_testdata = hp.test_execute_primitive(primitive, curr_testdata)
+            elif primitive.task == "FeatureExtraction":
+                new_testdata = hp.test_featurise(primitive, curr_testdata)
+            elif primitive.task == "Modeling":
                 continue
 
-            new_testdata = hp.test_execute_primitive(primitive, curr_testdata)
             curr_testdata = new_testdata.copy()
 
         assert last_primitive != None
 
-        print(curr_testdata.shape)
+        result = pandas.DataFrame(last_primitive.executables.produce(inputs=curr_testdata).value, index = curr_testdata.index, \
+               columns = [cn["colName"] for cn in data_manager.target_columns]) 
 
-        print(last_primitive.executables.produce(inputs=curr_testdata).value[:10])
-        print(curr_testdata.index[:10])
+#        See the range of results
+        for col in [cn["colName"] for cn in data_manager.target_columns]:
+            print("col = ", col, "min_val = ", result[col].min(), "max_val = ", result[col].max())
+
+#        print(curr_testdata.shape)
+
+#        print(last_primitive.executables.produce(inputs=curr_testdata).value[:10])
+#        print(curr_testdata.index[:10])
+
+#        for metric in controller.problem.metric_functions:
+#            print(problem._get_metric_function(metric))
+#        print(problem.metrics)
+
+        # we want to compare result and data_manager.target_data
+#        print("RESULT")
+#        print(result)
+#        print("DM - TARGET")
+#        print(data_manager.target_data)
+
+        # for each metric, compute the result
+        for metric in problem.metrics:
+            metric_function = problem._get_metric_function(metric)
+
+            print(hp._call_function(metric_function, data_manager.target_data, result))
+            print(hp._call_function(metric_function, result, data_manager.target_data))
+#            print(metric_function([0,0], [0,1]))
+
+
+        
                                     
 if __name__ == "__main__":
     if DEBUG:
