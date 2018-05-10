@@ -68,7 +68,7 @@ def process_dataset(config):
     # FIXME HACKY - to save space, output results in home directory and remove current outputs folder
     home = "/nas/home/stan"
     problem_name = problem.prID.rsplit("_", 1)[0]
-    output_file = home + "/" + problem_name + ".txt"
+    output_file = home + "/outputs/" + problem_name + ".txt"
     f = open(output_file, "w+")
 
     # Load in the dataset, data manager and execution helper
@@ -111,6 +111,7 @@ def process_dataset(config):
 
         result = pandas.DataFrame(last_primitive.executables.produce(inputs=curr_testdata).value, index = curr_testdata.index, \
                columns = [cn["colName"] for cn in data_manager.target_columns])
+#        result.to_csv("/nas/home/stan/outputs/script_result.csv")
 
         # For each metric, compute the result
         for metric in problem.metrics:
@@ -126,9 +127,9 @@ def process_dataset(config):
     print("Cleaning temp folder...")
 
     temp_output_folder = config["temp_storage_root"].rsplit("/", 1)[0]
-    shutil.rmtree(temp_output_folder)
+    shutil.move(temp_output_folder, home + "/outputs")
 
-    print("Succesfully removed", temp_output_folder)
+#    print("Succesfully removed", temp_output_folder)
 
 
 def main(argv=None): # IGNORE:C0111
@@ -160,6 +161,9 @@ def main(argv=None): # IGNORE:C0111
     for folder, sub_dirs, _ in os.walk(dataset_folder):
 
         dataset = folder.split('/')[-1]
+
+        print(dataset)
+
         if folder != dataset_folder and '.git' not in folder:
             config = {}
             del sub_dirs[:]
@@ -174,8 +178,13 @@ def main(argv=None): # IGNORE:C0111
             config["executables_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'executables')  
             config["temp_storage_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'temp')
             config["timeout"] = TIMEOUT
+
             config["include"] = include
             config["exclude"] = exclude
+
+            #config["include"] = ["d3m.primitives.sklearn_wrap.SKAdaBoostClassifier"]
+            #config["exlucde"] = ["*"]
+
             # don't change timeout, cpus, ram?
 
             try:
@@ -184,6 +193,9 @@ def main(argv=None): # IGNORE:C0111
             except:
                 failures.append(dataset)
                 continue
+
+#        if count == 3:
+#            break
 
     print("Completed Running ", count, " Pipelines")
     print("Failed on datasets:")
