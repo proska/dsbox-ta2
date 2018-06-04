@@ -16,7 +16,7 @@ from primitive_interfaces.generator import GeneratorPrimitiveBase
 from primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
 from primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPrimitiveBase
 from sklearn.externals import joblib
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.schema.profile_schema import DataProfileType as dpt
@@ -252,11 +252,11 @@ class ExecutionHelper(object):
 
                     # TODO: Should use same random_state for comparison across algorithms
 
-                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
+                    skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
                     tcols = [self.data_manager.target_columns[0]['colName']]
                     yPredictions = None
                     num = 0.0
-                    for k, (train, test) in enumerate(kf.split(X, y)):
+                    for k, (train, test) in enumerate(skf.split(X, y)):
                         executable = self.instantiate_primitive(primitive)
                         if executable is None:
                             primitive.finished = True

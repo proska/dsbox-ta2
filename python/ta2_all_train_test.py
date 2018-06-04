@@ -179,8 +179,20 @@ def main(argv=None): # IGNORE:C0111
             config["temp_storage_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'temp')
             config["timeout"] = TIMEOUT
 
-            config["include"] = include
-            config["exclude"] = exclude
+            config["include"] = [
+                "d3m.primitives.sklearn_wrap.SKAdaBoostClassifier", \
+                "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier", \
+                "d3m.primitives.sklearn_wrap.SKLogisticRegression", \
+                "d3m.primitives.sklearn_wrap.SKLinearSVC", \
+                "d3m.primitives.sklearn_wrap.SKKNeighborsClassifier", \
+                "d3m.primitives.sklearn_wrap.SKLinearDiscriminantAnalysis", \
+                "d3m.primitives.sklearn_wrap.SKRandomForestClassifier", \
+                "d3m.primitives.sklearn_wrap.SKGaussianNB", \
+                "d3m.primitives.sklearn_wrap.SKMultinomialNB", \
+                "d3m.primitives.sklearn_wrap.SKSGDClassifier", \
+                "d3m.primitives.sklearn_wrap.SKQuadraticDiscriminantAnalysis"
+            ]
+            config["exclude"] = ["*"]
 
             #config["include"] = ["d3m.primitives.sklearn_wrap.SKAdaBoostClassifier"]
             #config["exlucde"] = ["*"]

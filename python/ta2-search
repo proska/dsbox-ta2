@@ -8,6 +8,7 @@ from dsbox_dev_setup import path_setup
 path_setup()
 
 import argparse
+import copy
 import sys
 import os
 import pandas
@@ -20,6 +21,7 @@ from dsbox.executer.executionhelper import ExecutionHelper
 from dsbox.planner.common.data_manager import Dataset, DataManager
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.controller import Controller, Feature
+from dsbox.schema.data_profile import DataProfile
 from dsbox.planner.event_handler import PlannerEventHandler
 
 from pathlib import Path
@@ -76,6 +78,15 @@ ta2-search <search_config_file>
     # Load in data
     controller.initialize_training_data_from_config()
 
+    # Get data details
+    df = copy.copy(controller.data_manager.input_data)
+    df_lbl = copy.copy(controller.data_manager.target_data)
+    df_profile = DataProfile(df)
+    print(df_profile)
+
+    for i in range(10):
+        print("*")
+
     # Start training
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
@@ -83,6 +94,8 @@ ta2-search <search_config_file>
             print("ProblemNotImplemented")
             sys.exit(148)
         pass
+
+    return
 
     # Start testing
     problem = Problem()
@@ -93,9 +106,10 @@ ta2-search <search_config_file>
         config["test_data_root"] = config["training_data_root"]
 
     # FIXME HACKY - to save space, output results in home directory and remove current outputs folder
-    home = "/nas/home/stan"
-    problem_name = problem.prID.rsplit("_", 1)[0]
-    output_file = home + "/" + problem_name + ".txt"
+#    home = "/nas/home/stan"
+#    problem_name = problem.prID.rsplit("_", 1)[0]
+#    output_file = home + "/outputs/" + problem_name + ".txt"
+    output_file = config["temp_storage_root"] + "train+test.txt"
     f = open(output_file, "w+")
 
     # Load in the dataset, data manager and execution helper
@@ -150,12 +164,12 @@ ta2-search <search_config_file>
 
     f.close()
 
-    print("Cleaning temp folder...")
+#    print("Cleaning temp folder...")
 
-    temp_output_folder = config["temp_storage_root"].rsplit("/", 1)[0]
-    shutil.rmtree(temp_output_folder) 
+#    temp_output_folder = config["temp_storage_root"].rsplit("/", 1)[0]
+#    shutil.move(temp_output_folder, home + "/outputs")
 
-    print("Succesfully removed", temp_output_folder)
+#    print("Succesfully removed", temp_output_folder)
         
                                     
 if __name__ == "__main__":
