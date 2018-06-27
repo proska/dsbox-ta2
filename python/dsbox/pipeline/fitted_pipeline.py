@@ -256,6 +256,11 @@ class FittedPipeline:
         run = Runtime(state['pipeline'])
         run.pipeline = fitted
 
+<<<<<<< HEAD
         state['runtime'] = run
 
         self.__dict__ = state
+=======
+        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
+        return fitted_pipeline_loaded
+>>>>>>> Fix fitted pipeline loading
