@@ -102,8 +102,8 @@ class FittedPipeline:
         Load the pipeline with given pipeline id and folder location
         '''
         # load pipeline from json
-        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
-        executable_dir = os.path.join(self.folder_loc, 'executables')
+        pipeline_dir = os.path.join(folder_loc, 'pipelines')
+        executable_dir = os.path.join(folder_loc, 'executables')
 
         json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
         print("The following pipeline files will be loaded:")

@@ -29,7 +29,7 @@ T = typing.TypeVar("T")
 
 class DimensionalSearch(typing.Generic[T]):
     """
-    Search configuration space on dimension at a time.
+    Search configuration space one dimension at a time.
 
     Attributes
     ----------
@@ -78,7 +78,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=10):
+                        candidate_value: float = None, max_per_dimension=20):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -222,7 +222,7 @@ class DimensionalSearch(typing.Generic[T]):
 
 
 
-    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
+    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=20):
         for i in range(num_iter):
             candidate, candidate_value = self.search_one_iter(candidate, candidate_value, max_per_dimension=max_per_dimension)
             if candidate is None:

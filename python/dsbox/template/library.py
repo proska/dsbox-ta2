@@ -80,12 +80,28 @@ class TemplateLibrary:
         # added new inline_templates muxin
         ######################################################## FIXME - right now we are only doing classification
         # self.templates.append(DefaultRegressionTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
 
         # FIXME - testing purposes
-        # self.templates.append(DefaultClassificationTemplate)
+
+        ###############################################################
+        ### CLASSIFICATION
+        ###############################################################
         # self.templates.append(serbans_random_forest_template)
         # self.templates.append(serbans_gradientboostingclassifier_template)
-        self.templates.append(serbans_random_forest_template)
+        # self.templates.append(serbans_passiveaggressiveclassifier_template)
+        # self.templates.append(serbans_sksvc_template)
+        # self.templates.append(serbans_gaussiannb_template)
+        # self.templates.append(serbans_multinomialnb_template)
+        # self.templates.append(serbans_bernoullinb_template)
+        # self.templates.append(serbans_qda_template)
+
+        ###############################################################
+        ### REGRESSION
+        ###############################################################
+        # self.templates.append(serbans_ard_template)
+        self.templates.append(serbans_ridge_template)
+
 
     def _generate_simple_classifer_template_new(self) -> TemplateDescription:
         template = TemplatePipeline(context='PRETRAINING',
@@ -295,6 +311,696 @@ class SemanticTypeDict(object):
         # return SimpleConfigurationSpace(definition)
         return definition
 
+class serbans_ridge_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_ridge_regression_template",
+            "taskType": TaskType.REGRESSION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                # "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKRidge",
+                            "hyperparameters": {
+                                "alpha": [.7,1.0,1.3],
+                                "solver": ['auto', 'sparse_cg', 'lsqr', 'saga']
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class serbans_ard_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_ARD_regression_template",
+            "taskType": TaskType.REGRESSION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                # "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKARDRegression",
+                            "hyperparameters": {
+                                # "n_iter": [100,300]
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class serbans_qda_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_quadratic_discriminant_analysis_template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                # "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKQuadraticDiscriminantAnalysis",
+                            "hyperparameters": {
+                                "reg_param": [0.0, .3, .5, .7, 1.0]
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class serbans_bernoullinb_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_bernoullinb_template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                # "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKBernoulliNB",
+                            "hyperparameters": {
+                                "alpha": [0, 0.2, 0.4, 0.7, 1.0],
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+
+class serbans_multinomialnb_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_multinomialnb_template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                # "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKMultinomialNB",
+                            "hyperparameters": {
+                                "alpha": [0.8, 1.0],
+                                "fit_prior": [True, False],
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class serbans_gaussiannb_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_gaussiannb_template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            "hyperparameters": {
+                                "strategy": ["mean", "median", "most_frequent"],
+                            },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKGaussianNB",
+                            "hyperparameters": {
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class serbans_sksvc_template(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "serbans_sksvc_template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            "inputType": "table",
+            "output": "model_step",
+            "target": "extract_target_step",
+            "steps": [
+
+                # join several tables into one
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+
+                # create a DF
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": [
+                        "d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+
+                # 
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                # extract columns with the 'attribute' metadata
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+
+                # change strings to correct column type
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKImputer",
+                            # "hyperparameters": {
+                            #     "strategy": ["mean", "median", "most_frequent"],
+                            # },
+                        },
+                    ],
+                    "inputs": ["cast_1_step"]
+                },
+
+                # processing target column
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                # running a primitive
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap." +
+                                 "SKSVC",
+                            "hyperparameters": {
+                                # http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html
+                                "C": [1.4, 1.0, 0.6],
+                                "kernel": ['rbf', 'sigmoid'],
+                                "class_weight": [{}, "balanced"],
+                                # "loss": ["hinge", "squared_hinge"],
+                                # "max_iter": [5, 100],
+                            },
+                        },
+                    ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
 class serbans_passiveaggressiveclassifier_template(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -379,9 +1085,9 @@ class serbans_passiveaggressiveclassifier_template(DSBoxTemplate):
                             "hyperparameters": {
                                 # http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PassiveAggressiveClassifier.html
                                 "fit_intercept": [True],
-                                "n_jobs": [-1],
                                 "class_weight": [{}, "balanced"],
-                                "loss": [5e-4],
+                                "loss": ["hinge", "squared_hinge"],
+                                "max_iter": [5, 100],
                             },
                         },
                     ],
@@ -481,7 +1187,7 @@ class serbans_gradientboostingclassifier_template(DSBoxTemplate):
                             "hyperparameters": {
                                 # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html
                                 "loss": ['deviance', 'exponential'],
-                                "learning_rate": [.1, .08],
+                                "learning_rate": [.1, .2],
                                 "n_estimators": [75,100],
                             },
                         },
