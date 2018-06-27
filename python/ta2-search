@@ -89,7 +89,8 @@ def main(args):
 
             # This os._exit() cannot be caught.
             print('SIGNAL exiting {}'.format(configuration_file), flush=True)
-            os._exit(0)
+            # os._exit(0)
+            return -1
 
     # Set timeout, alarm and signal handler
     if 'timeout' in config:

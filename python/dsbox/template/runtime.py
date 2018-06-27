@@ -6,6 +6,8 @@ import networkx as nx
 import json
 import os
 
+import time
+
 
 class Runtime:
     """
@@ -94,11 +96,11 @@ class Runtime:
         self.fit_outputs = []
         self.produce_outputs = []
 
-    def fit(self, **arguments) -> None:
+    def fit(self, cache, **arguments) -> None:
         """
         Train all steps in the pipeline.
 
-        Paramters
+        Parameters
         ---------
         arguments
             Arguments required to train the Pipeline
@@ -115,8 +117,32 @@ class Runtime:
                 else:
                     primitive_arguments[argument] = arguments[argument][value['source']]
 
+            start_time = time.time()
+            # print("!!! Running", self.pipeline_description.steps[n_step].primitive)
+
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
-                primitives_outputs[n_step] = self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments)
+                prim_name = str(self.pipeline_description.steps[n_step].primitive)
+                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
+                dataset_hash = hash(str(primitive_arguments))
+
+                prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+                
+                print(prim_name, prim_hash)
+
+                if (prim_name, prim_hash) in cache:
+                    # primitives_outputs[n_step],model = self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments)
+                    primitives_outputs[n_step],model = cache[(prim_name, prim_hash)]
+                    self.pipeline[n_step] = model
+
+                    print("Retrieving from cache")
+                else:
+                    primitives_outputs[n_step],model = self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments)
+
+                    # if prim_name == 'd3m.primitives.sklearn_wrap.SKRandomForestClassifier':
+                    #     print("->", self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments))
+
+                    cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
+                    print("Storing in cache")
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
@@ -125,7 +151,7 @@ class Runtime:
         """
         Execute a step and train it with primitive arguments.
 
-        Paramters
+        Parameters
         ---------
         n_step: int
             An integer of the actual step.
@@ -179,7 +205,8 @@ class Runtime:
         model.fit()
         self.pipeline[n_step] = model
         # print('produce_params', produce_params)
-        return model.produce(**produce_params).value
+
+        return model.produce(**produce_params).value, model
 
     def _primitive_arguments(self, primitive, method: str) -> set:
         """
@@ -198,11 +225,12 @@ class Runtime:
         """
         Train all steps in the pipeline.
 
-        Paramters
+        Parameters
         ---------
         arguments
             Arguments required to execute the Pipeline
         """
+
         steps_outputs = [None] * len(self.execution_order)
 
         for i in range(0, len(self.execution_order)):
@@ -219,6 +247,11 @@ class Runtime:
                         produce_arguments[argument] = arguments[argument][value['source']]
                     if produce_arguments[argument] is None:
                         continue
+
+            
+            # print("produce arguments primitive:", produce_arguments_primitive)
+            # print("arguments:", produce_arguments)
+
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
                     # print('-'*100)

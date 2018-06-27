@@ -123,10 +123,10 @@ if __name__ == "__main__":
 
     home = str(Path.home())
 
-    for conf in os.listdir(home + "/dsbox/runs2/config-seed/"):
+    for conf in os.listdir(home + "/dsbox/runs2/config-ll0/"):
         print("Working for", conf)
 
-        args.configuration_file = "/nas/home/stan/dsbox/runs2/config-seed/" + conf
+        args.configuration_file = "/nas/home/stan/dsbox/runs2/config-ll0/" + conf
 
         try:
             result = main(args)

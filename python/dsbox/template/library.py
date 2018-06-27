@@ -78,11 +78,12 @@ class TemplateLibrary:
         # self.templates.append(self._generate_simple_regressor_template())
 
         # added new inline_templates muxin
-        self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(DefaultClassificationTemplate)
+        ######################################################## FIXME - right now we are only doing classification
+        # self.templates.append(DefaultRegressionTemplate)
 
         # FIXME - testing purposes
-        self.templates.append(DefaultClassificationTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(serbans_random_forest_template)
 
     def _generate_simple_classifer_template_new(self) -> TemplateDescription:
         template = TemplatePipeline(context='PRETRAINING',
@@ -412,11 +413,11 @@ class DoesNotMatchTemplate2(DSBoxTemplate):
         return 7
 
 
-class SerbansClassificationTemplate(DSBoxTemplate):
+class serbans_random_forest_template(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Serbans_classification_template",
+            "name": "serbans_random_forest_template",
             "taskType": TaskType.CLASSIFICATION.name,
             "inputType": "table",
             "output": "model_step",
@@ -472,11 +473,6 @@ class SerbansClassificationTemplate(DSBoxTemplate):
                     ],
                     "inputs": ["cast_1_step"]
                 },
-                # {
-                #     "name": "standardize",
-                #     "primitives": ["dsbox.datapreprocessing.cleaner.IQRScaler"], # FIXME: want d3m name
-                #     "inputs": ["impute_step"]
-                # },
 
                 # processing target column
                 {
@@ -497,10 +493,17 @@ class SerbansClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap." +
-                                 "SKGradientBoostingClassifier",
+                                 "SKRandomForestClassifier",
                             "hyperparameters": {
-                                "n_estimators": [50,75,100],
-                                    },
+                                # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
+                                "n_estimators": [10,15], # important (the higher the better)
+                                # "max_features": [None, "auto"],
+                                # "criterion": ["gini", "entropy"],
+                                # "max_depth": [None,10,20],
+                                # "min_samples_split": [2,4],
+                                # "n_jobs": [-1],
+                                # "class_weight": [None, "balanced"]
+                            },
                         },
                         # {
                         #     "primitive":

@@ -29,7 +29,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 # FIXME: we only need this for testing
 import pandas as pd
 
-def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_size=0.2):
+def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
     Split dataset into training and test
     '''
@@ -61,7 +61,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
     except:
         if task_type == TaskType.CLASSIFICATION:
             # Use stratified sample to split the dataset
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
             sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
             for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
                 train = dataset[res_id].iloc[train_index,:]
@@ -70,7 +70,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
             # Use random split
             if not task_type == TaskType.REGRESSION:
                 print('USING Random Split to split task type: {}'.format(task_type))
-            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
             ss.get_n_splits(dataset[res_id])
             for train_index, test_index in ss.split(dataset[res_id]):
                 train = dataset[res_id].iloc[train_index,:]
@@ -85,7 +85,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
     dimension = dict(meta['dimension'])
     meta['dimension'] = dimension
     dimension['length'] = train.shape[0]
-    print(meta)
+    print("training meta", meta)
     train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
     
@@ -96,7 +96,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
     dimension = dict(meta['dimension'])
     meta['dimension'] = dimension
     dimension['length'] = test.shape[0]
-    print(meta)
+    print("test meta", meta)
     test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
     
@@ -138,6 +138,9 @@ class Controller:
 
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
+
+        # Runtime cache
+        self.cache: dict = dict()
 
         # set random seed
         random.seed(4676)
@@ -281,13 +284,14 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.dataset,
-                self.dataset, metrics)
+                self.dataset, metrics, self.cache)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.dataset,
-                self.test_dataset, metrics)
+                self.test_dataset, metrics, self.cache)
 
-        candidate, value = search.search_one_iter()
+        candidate, value, all_candidates = search.search_one_iter()
+
         if candidate is None:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
@@ -305,15 +309,27 @@ class Controller:
             # FIXME: code used for doing experiments, want to make optionals
             pipeline = FittedPipeline.create(configuration=candidate,
                                         dataset=self.dataset)
-                                                                           
+                                                       
+
+            ##################################################################
+            ### Writing data to file
+            ##################################################################
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-            save_location = str(Path.home()) + "/outputs/" + dataset_name + ".txt"
+            save_location = str(Path.home()) + "/outputs/random_forest_ll0/" + dataset_name + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
-            f.write(str(metrics) + "\n")
+            f.write(candidate.data['training_metrics'][0]['metric'].name + "\n")
             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
             f.write(str(candidate.data['validation_metrics'][0]['value']) + "\n")
+            f.write("\n" * 4)
+
+            for c in all_candidates:
+                f.write(str(c) + "\n")
+                f.write(str(c.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(c.data['validation_metrics'][0]['value']) + "\n")
+                f.write("\n")
+            
             f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")

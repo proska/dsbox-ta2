@@ -102,6 +102,8 @@ class DimensionalSearch(typing.Generic[T]):
 
         # generate an executable pipeline with random steps from conf. space.
 
+        all_succesful_candidates = [candidate]
+
         # The actual searching process starts here.
         for dimension in self.dimension_ordering:
             # get all possible choices for the step, as specified in
@@ -109,7 +111,7 @@ class DimensionalSearch(typing.Generic[T]):
             choices: typing.List[T] = self.configuration_space\
                                           .get_values(dimension)
 
-            # TODO this is just a hack
+            # FIXME this is just a hack
             if len(choices) == 1:
                 continue;
 
@@ -150,7 +152,7 @@ class DimensionalSearch(typing.Generic[T]):
             # All candidates failed!
             if len(values) == 0:
                 print("[INFO] No Candidate worked!:",values)
-                return (None, None)
+                return (None, None, None)
 
             # Find best candidate
             if self.minimize:
@@ -164,9 +166,11 @@ class DimensionalSearch(typing.Generic[T]):
             elif (self.minimize and values[best_index] < candidate_value) or (not self.minimize and values[best_index] > candidate_value):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
+
+            all_succesful_candidates.extend(sucessful_candidates)
         # here we can get the details of pipelines from "candidate.data"
 
-        return (candidate, candidate_value)
+        return (candidate, candidate_value, all_succesful_candidates)
 
 
 
@@ -187,6 +191,9 @@ class DimensionalSearch(typing.Generic[T]):
         if candidate is None:
             candidate = ConfigurationPoint(
                 self.configuration_space, self.first_assignment())
+
+        print("---------------------->", candidate)
+
         # first, then random, then another random
         for i in range(2):
             try:
@@ -258,6 +265,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  train_dataset: Dataset,
                  validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
+                 cache: dict(), 
                  resolver: Resolver = None) -> None:
 
         # Use first metric from validation
@@ -271,6 +279,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
+        self.cache = cache
         self.resolver = resolver
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
@@ -293,6 +302,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         configuration.data.update(new_data)
         return value, configuration.data
 
+    
+
     def _evaluate(self, configuration: ConfigurationPoint) -> typing.Tuple[float, dict]:
 
         pipeline = self.template.to_pipeline(configuration)
@@ -300,11 +311,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         run = Runtime(pipeline)
 
-        run.fit(inputs=[self.train_dataset])
+        run.fit(self.cache, inputs=[self.train_dataset])
         training_ground_truth = run.fit_outputs[self.template.get_target_step_number()]
         training_prediction = run.fit_outputs[self.template.get_output_step_number()]
 
+        # Done executing the pipeline
         print('*'*100)
+
         results = run.produce(inputs=[self.validation_dataset])
         validation_ground_truth = run.produce_outputs[self.template.get_target_step_number()]
         # results == validation_prediction
