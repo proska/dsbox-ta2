@@ -12,6 +12,9 @@ import signal
 import sys
 import traceback
 
+import numpy as np
+
+from argparse import Namespace
 from pathlib import Path
 from pprint import pprint
 
@@ -22,7 +25,9 @@ from dsbox.controller.controller import Controller
 import os
 controller = Controller('/', development_mode=True)
 
-def main(args):
+from multiprocessing import Pool
+
+def work(args):
 
     library_directory = os.path.dirname(
         os.path.realpath(__file__)) + "/library"
@@ -123,18 +128,31 @@ if __name__ == "__main__":
 
     home = str(Path.home())
 
+    print(args)
+    print(type(args))
+
+    # 294 files, turns out we can split the data using something like this
+    # np.split(np.array(os.listdir(home + "/dsbox/runs2/config-ll0/")), 21)
+
+    all_args = []
     for conf in os.listdir(home + "/dsbox/runs2/config-ll0/"):
-        print("Working for", conf)
-
+    # for conf in np.split(np.array(os.listdir(home + "/dsbox/runs2/config-ll0/")), 21)[0]:
         args.configuration_file = "/nas/home/stan/dsbox/runs2/config-ll0/" + conf
+        all_args.append(Namespace(**vars(args)))
 
-        try:
-            result = main(args)
-            print("[INFO] Run succesfull")
-        except:
-            print("[ERROR] Failed dataset", conf)
+    print(Pool().map(work, all_args))
 
-        print("\n" * 10)
+    # for arg in all_args:
+    #     print("Working for", args.configuration_file)
+
+    #     try:
+    #         work(args)
+    #         print("[INFO] Run succesfull")
+    #     except:
+    #         print("[ERROR] Failed dataset", args.configuration_file)
+
+    #     print("\n" * 10)
+    #     break
 
     #result = main(args)
     #os._exit(result)

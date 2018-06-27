@@ -309,13 +309,21 @@ class Controller:
             # FIXME: code used for doing experiments, want to make optionals
             pipeline = FittedPipeline.create(configuration=candidate,
                                         dataset=self.dataset)
-                                                       
+                                                    
 
             ##################################################################
-            ### Writing data to file
+            ### Writing experiment data to file
             ##################################################################
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-            save_location = str(Path.home()) + "/outputs/random_forest_ll0/" + dataset_name + ".txt"
+
+            # FIXME: output folder
+            # save_location = str(Path.home()) + "/outputs/random_forest_ll0/" + dataset_name + ".txt"
+
+            save_folder = str(Path.home()) + "/outputs/" + candidate['model_step']['primitive'] + "/"
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder)
+
+            save_location = save_folder + dataset_name + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
@@ -331,6 +339,10 @@ class Controller:
                 f.write("\n")
             
             f.close()
+
+
+
+
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
