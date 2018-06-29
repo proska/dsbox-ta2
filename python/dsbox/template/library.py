@@ -59,7 +59,7 @@ class TemplateLibrary:
             #import pdb
             #pdb.set_trace()
 
-            if task.name in template.template['taskType'] and subtype.name in template.template['taskSubtype']:
+            if task.name in template.template['taskType'] and (subtype==TaskSubtype.NONE or subtype.name in template.template['taskSubtype']):
                 # if there is only one task source type which is table, we don't need to check other things
                 if taskSourceType == {"table"} and template.template['inputType'] == "table":
                     results.append(template)
@@ -497,6 +497,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
+<<<<<<< HEAD
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
@@ -504,7 +505,17 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+=======
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
+                    "inputs": ["column_parser_step"]
+>>>>>>> use ExtractColumnsBySemanticTypes
                 },
+
                 {
                     "name": "cast_1_step",
                     "primitives": ["d3m.primitives.data.CastToType"],
@@ -513,7 +524,8 @@ class DefaultRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    # "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
                     "inputs": ["cast_1_step"]
                 },
                 {
@@ -526,7 +538,11 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
+<<<<<<< HEAD
                     "inputs": ["to_dataframe_step"]
+=======
+                    "inputs": ["column_parser_step"]
+>>>>>>> use ExtractColumnsBySemanticTypes
                 },
                 {
                     "name": "model_step",
