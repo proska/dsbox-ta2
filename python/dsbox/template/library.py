@@ -66,7 +66,7 @@ class TemplateLibrary:
             #import pdb
             #pdb.set_trace()
 
-            if task.name in template.template['taskType'] and subtype.name in template.template['taskSubtype']:
+            if task.name in template.template['taskType'] and (subtype==TaskSubtype.NONE or subtype.name in template.template['taskSubtype']):
                 # if there is only one task source type which is table, we don't need to check other things
                 if taskSourceType == {"table"} and template.template['inputType'] == "table":
                     results.append(template)
@@ -74,7 +74,7 @@ class TemplateLibrary:
                     # otherwise, we need to process in another way because "table" source type exist nearly in every dataset
                     if "table" in taskSourceType:
                         taskSourceType.remove("table")
-                        
+
                     for each_source_type in taskSourceType:
                         if each_source_type in {template.template['inputType']}:
                             results.append(template)
@@ -344,9 +344,18 @@ class DoesNotMatchTemplate1(DSBoxTemplate):
 
                 {
                     "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
+
                 {
                     "name": "cast_1_step",
                     "primitives": ["d3m.primitives.data.CastToType"],
@@ -354,7 +363,14 @@ class DoesNotMatchTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "extract_target_step",
-                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -474,7 +490,7 @@ class SerbansClassificationTemplate(DSBoxTemplate):
                     "inputs": ["denormalize_step"]
                 },
 
-                # 
+                #
                 {
                     "name": "column_parser_step",
                     "primitives": ["d3m.primitives.data.ColumnParser"],
@@ -484,7 +500,15 @@ class SerbansClassificationTemplate(DSBoxTemplate):
                 # extract columns with the 'attribute' metadata
                 {
                     "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
 
@@ -517,7 +541,14 @@ class SerbansClassificationTemplate(DSBoxTemplate):
                 # processing target column
                 {
                     "name": "extract_target_step",
-                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -676,9 +707,18 @@ class DefaultRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
+
                 {
                     "name": "cast_1_step",
                     "primitives": ["d3m.primitives.data.CastToType"],
@@ -687,12 +727,20 @@ class DefaultRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    # "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
                     "inputs": ["cast_1_step"]
                 },
                 {
                     "name": "extract_target_step",
-                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -717,7 +765,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
             "name": "default_timeseries_collection_template",
             "taskType": TaskType.CLASSIFICATION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
-            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values 
+            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
             "output" : "random_forest_step",  # Name of the final step generating the prediction
             "target" : "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -743,8 +791,8 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',), 
-                            'use_columns': (), 
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'use_columns': (),
                             'exclude_columns': ()
                             }
                         }],
@@ -783,7 +831,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
             "name": "default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
-            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values 
+            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output" : "regressor_step",  # Name of the final step generating the prediction
             "target" : "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -809,8 +857,8 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',), 
-                            'use_columns': (), 
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'use_columns': (),
                             'exclude_columns': ()
                             }
                         }],
