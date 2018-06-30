@@ -746,7 +746,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [
-                        "d3m.primitives.sklearn_wrap.SKARDRegression",
+                        # "d3m.primitives.sklearn_wrap.SKARDRegression",
                         "d3m.primitives.sklearn_wrap.SKSGDRegressor",
                         "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor"],
                     "inputs": ["impute_step", "extract_target_step"]

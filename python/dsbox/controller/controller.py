@@ -7,7 +7,7 @@ import typing
 import d3m
 import dsbox.template.runtime as runtime
 
-from d3m.container.dataset import Dataset, D3MDatasetLoader, SEMANTIC_TYPES, get_d3m_dataset_digest
+from d3m.container.dataset import Dataset, D3MDatasetLoader, SEMANTIC_TYPES
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
@@ -33,8 +33,10 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     Split dataset into training and test
     '''
 
-    task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
+    # E.g., TaskType.CLASSIFICATION, TaskType.REGRESSION
+    task_type : TaskType = problem['problem']['task_type']
 
+    # Get target index
     for i in range(len(problem['inputs'])):
         if 'targets' in problem['inputs'][i]:
             break
@@ -42,6 +44,17 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
 
+    # Set Target and TrueTarget semantic types
+    semantic_types = list(dataset.metadata.query(
+        (res_id, ALL_ELEMENTS, target_index)).get('semantic_types', []))
+    if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+        semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+        dataset.metadata = dataset.metadata.update(
+            (res_id, ALL_ELEMENTS, target_index), {'semantic_types': semantic_types})
+    if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+        semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+        dataset.metadata = dataset.metadata.update(
+            (res_id, ALL_ELEMENTS, target_index), {'semantic_types': semantic_types})
     try:
         splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
 
@@ -50,7 +63,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train_test = df[df.columns[1]]
         train_indices = df[train_test == 'TRAIN'][df.columns[0]]
         test_indices = df[train_test == 'TEST'][df.columns[0]]
-        
+
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
@@ -87,7 +100,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
-    
+
     # Generate testing dataset
     test_dataset = copy.copy(dataset)
     test_dataset[res_id] = test
@@ -98,11 +111,11 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
-    
+
 
     return (train_dataset, test_dataset)
 
-    
+
 
 class Status(enum.Enum):
     OK = 0
@@ -143,17 +156,62 @@ class Controller:
         # set random seed
         random.seed(4676)
 
+        # !!!!temp
+        self.candidate = None
+        self.candidate_value = None
+
+
     def initialize_from_config(self, config: typing.Dict) -> None:
         self.config = config
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.task_type = TaskType.parse(self.problem['problem']['task_type'])
+        self.task_subtype = TaskType.parse(self.problem['problem']['task_subtype'])
 
         # Dataset
         loader = D3MDatasetLoader()
         dataset_uri = 'file://{}'.format(os.path.abspath(config['dataset_schema']))
         self.dataset = loader.load(dataset_uri=dataset_uri)
+
+        # Resource limits
+        self.num_cpus = int(config.get('cpus', 0))
+        self.ram = config.get('ram', 0)
+        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        # Templates
+        self.load_templates()
+
+    def initialize_from_ta3(self, config: typing.Dict):
+        self.config = config
+
+        output_dir = os.path.abspath(os.environ['D3MOUTPTUDIR'])
+        pipelines_dir = os.path.join(output_dir, 'pipelines')
+        executables_dir = os.path.join(output_dir, 'exectuables')
+        supporting_files_dir = os.path.join(output_dir, 'supporting_files')
+        temp_dir = os.path.join(output_dir, 'temp')
+
+        self.config['pipelines'] = pipelines_dir
+        self.config['executables_root'] = executables_dir
+        self.config['supporting_files'] = supporting_files_dir
+        self.config['temp_storage_root'] = temp_dir
+
+        self.problem: typing.Dict = config['problem']
+        self.problem_doc_metadata = Metadata(self.problem)
+
+        # Already parsed
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
+
+        # Dataset
+        loader = D3MDatasetLoader()
+        dataset_uri = config['dataset_schema']
+        if not dataset_uri.startswith('file://'):
+            dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
+        self.dataset = loader.load(dataset_uri=dataset_uri)
+        self.dataset, self.test_dataset = split_dataset(self.dataset, self.problem)
+
 
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
@@ -169,9 +227,12 @@ class Controller:
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
+
         # Dataset
         loader = D3MDatasetLoader()
-        
+
         json_file = os.path.abspath(config['dataset_schema'])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
@@ -209,18 +270,16 @@ class Controller:
         #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
         #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
         #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
-                        
+
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
-        self.load_templates(self)
+        self.load_templates()
 
     def load_templates(self) -> None:
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
         # find the data resources type
         self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
         with open(self.config['dataset_schema'],'r') as dataset_description_file:
@@ -288,10 +347,16 @@ class Controller:
                 self.dataset, metrics)
         else:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.dataset,
+                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
                 self.test_dataset, metrics)
 
         candidate, value = search.search_one_iter()
+
+        self.candidate = candidate
+        self.candidate_value = value
+        import pdb
+        pdb.set_trace()
+
         if candidate is None:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
@@ -309,7 +374,7 @@ class Controller:
             # FIXME: code used for doing experiments, want to make optionals
             pipeline = FittedPipeline.create(configuration=candidate,
                                         dataset=self.dataset)
-                                                                           
+
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
             outputs_loc = str(Path.home()) + "/outputs"
             folder = os.path.exists(outputs_loc)
@@ -343,13 +408,13 @@ class Controller:
         print("=====~~~~~~~~~~~  new pipeline loading function test  ~~~~~~~~~~~=====")
 
         output_loc_var_name = 'outputs_loc'
-        d = os.path.expanduser(self.config[output_loc_var_name] + '/pipelines') 
+        d = os.path.expanduser(self.config[output_loc_var_name] + '/pipelines')
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
         files.sort(key=lambda f: os.stat(f).st_mtime)
         lastmodified = files[-1]
         read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
-        
+
         pipeline_load, pipeline_load_runtime = FittedPipeline.load(folder_loc = self.config[output_loc_var_name], pipeline_id = read_pipeline_id)
 
         print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")

@@ -29,11 +29,12 @@ from multiprocessing import Pool
 T = typing.TypeVar("T")
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
-    problem = problem_doc_metadata.query(())["inputs"]["data"]
+    # get targets
+    targets = problem_doc_metadata.query(())["inputs"][0]["targets"]
+    resID = targets[0]["resource_id"]
+    colIndex = targets[0]["column_index"]
+
     datameta = dataset.metadata
-    target = problem[0]["targets"]
-    resID = target[0]["resID"]
-    colIndex = target[0]["colIndex"]
     datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
     targetlist = []
     for v in range(datalength):
@@ -88,7 +89,7 @@ class DimensionalSearch(typing.Generic[T]):
 
     def get_dimension_length(self, kw: DimensionName) -> int:
         '''
-        Return the length of the list a configuration point 
+        Return the length of the list a configuration point
         '''
         return len(self.configuration_space.get_values(kw))
 
@@ -188,7 +189,7 @@ class DimensionalSearch(typing.Generic[T]):
                 best_index = values.index(min(values))
             else:
                 best_index = values.index(max(values))
-                
+
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]

@@ -583,14 +583,14 @@ class DSBoxTemplate():
                 else:
                     # other data format, not supported, raise error
                     print("Error: Wrong format of the description: Unsupported data format found : ",type(description))
-                    
+
                 values += value
             # END FOR
             if len(values) > 0:
                 conf_space[name] = values
         # END FOR
         return SimpleConfigurationSpace(conf_space)
-    
+
     def description_to_configuration(self, description):
         value = None
         # if the desciption is an dictionary: it maybe a primitive with hyperparaters
@@ -598,7 +598,7 @@ class DSBoxTemplate():
             print("Error: Wrong format of the configuration space data: No primitive name found!")
         else:
             if "hyperparameters" not in description:
-                description["hyperparameters"] : {}
+                description["hyperparameters"] = {}
             value = {
                 "primitive": description["primitive"],
                 "hyperparameters":description["hyperparameters"]

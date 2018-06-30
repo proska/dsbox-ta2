@@ -17,12 +17,8 @@ import numpy
 import argparse
 from concurrent import futures
 
-from dsbox.planner.common.resource_manager import ResourceManager
-from dsbox.planner.common.data_manager import RawResource
-
-from dsbox.server.controller.core import Core
-from dsbox.server.controller.data_ext import DataExt
-from dsbox.server.controller.dataflow_ext import DataflowExt
+import core_pb2_grpc
+from dsbox.server.ta2_servicer import TA2Servicer
 
 import multiprocessing
 from multiprocessing import Pool
@@ -36,18 +32,18 @@ PORT = 45042
 
 def serve():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--library", dest="library", help="Primitives library directory. [default: %(default)s]", default=DEFAULT_LIB_DIRECTORY)
+    parser.add_argument(
+        "-l", "--library", dest="library",
+        help="Primitives library directory. [default: %(default)s]",
+        default=DEFAULT_LIB_DIRECTORY)
     args = parser.parse_args()
 
-    ResourceManager.EXECUTION_POOL = Pool(multiprocessing.cpu_count())
-    RawResource.LOADING_POOL = Pool(multiprocessing.cpu_count())
-
+    servicer = TA2Servicer(DEFAULT_LIB_DIRECTORY)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+
     library = args.library
 
-    Core(library).add_to_server(server)
-    DataExt().add_to_server(server)
-    DataflowExt().add_to_server(server)
+    core_pb2_grpc.add_CoreServicer_to_server(servicer, server)
 
     server.add_insecure_port('[::]:' + str(PORT))
     server.start()
