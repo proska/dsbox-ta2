@@ -1,6 +1,7 @@
 import os
 import pdb
 import sys
+import typing
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ta3ta2_api = os.path.abspath(os.path.join(
@@ -11,10 +12,13 @@ sys.path.append(ta3ta2_api)
 
 import d3m.metadata.problem as d3m_problem
 
+from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep, ArgumentType
+from d3m.primitive_interfaces.base import PrimitiveBase
+
 import core_pb2
 import core_pb2_grpc
 import logging
-from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
 import random
 import string
 
@@ -23,23 +27,37 @@ from pprint import pprint
 import problem_pb2
 import value_pb2
 
-
 # import autoflowconfig
-from core_pb2 import HelloResponse
-from core_pb2 import SearchSolutionsResponse
+from core_pb2 import EndSearchSolutionsResponse
+from core_pb2 import EvaluationMethod
+from core_pb2 import GetScoreSolutionResultsResponse
 from core_pb2 import GetSearchSolutionsResultsResponse
+from core_pb2 import HelloResponse
+from core_pb2 import PrimitiveStepDescription
 from core_pb2 import Progress
 from core_pb2 import ProgressState
-from core_pb2 import ScoreSolutionResponse
-from core_pb2 import GetScoreSolutionResultsResponse
 from core_pb2 import Score
-from core_pb2 import EndSearchSolutionsResponse
+from core_pb2 import ScoreSolutionResponse
 from core_pb2 import ScoringConfiguration
-from core_pb2 import EvaluationMethod
+from core_pb2 import SearchSolutionsResponse
+from core_pb2 import StepDescription
+from core_pb2 import SubpipelineStepDescription
+
+from pipeline_pb2 import PipelineDescription
+from pipeline_pb2 import PipelineDescriptionInput
+from pipeline_pb2 import PipelineDescriptionOutput
+from pipeline_pb2 import PipelineDescriptionStep
+from pipeline_pb2 import PipelineDescriptionUser
+from pipeline_pb2 import PrimitivePipelineDescriptionStep
+from pipeline_pb2 import PrimitiveStepArgument
+from pipeline_pb2 import PrimitiveStepHyperparameter
+from pipeline_pb2 import StepOutput
 
 from problem_pb2 import ProblemPerformanceMetric
 from problem_pb2 import PerformanceMetric
 from problem_pb2 import ProblemTarget
+
+from primitive_pb2 import Primitive
 
 from value_pb2 import Value
 
@@ -50,32 +68,33 @@ _logger = logging.getLogger(__name__)
 
 # problem.proto and d3m.metadata.problem have different schemes for metrics
 # Mapping needed for v2018.4.18, but not for later versions
-pb2_to_d3m_metric = {
-    0 : None,  # METRIC_UNDEFINED
-    1 : d3m_problem.PerformanceMetric.ACCURACY,
-    2 : None,  # PRECISION
-    3 : None,  # RECALL
-    4 : d3m_problem.PerformanceMetric.F1,
-    5 : d3m_problem.PerformanceMetric.F1_MICRO,
-    6 : d3m_problem.PerformanceMetric.F1_MACRO,
-    7 : d3m_problem.PerformanceMetric.ROC_AUC,
-    8 : d3m_problem.PerformanceMetric.ROC_AUC_MICRO,
-    9 : d3m_problem.PerformanceMetric.ROC_AUC_MACRO,
-    10 : d3m_problem.PerformanceMetric.MEAN_SQUARED_ERROR,
-    11 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR,
-    12 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR_AVG,
-    13 : d3m_problem.PerformanceMetric.MEAN_ABSOLUTE_ERROR,
-    14 : d3m_problem.PerformanceMetric.R_SQUARED,
-    15 : d3m_problem.PerformanceMetric.NORMALIZED_MUTUAL_INFORMATION,
-    16 : d3m_problem.PerformanceMetric.JACCARD_SIMILARITY_SCORE,
-    17 : d3m_problem.PerformanceMetric.PRECISION_AT_TOP_K,
-#    18 : d3m_problem.PerformanceMetric.OBJECT_DETECTION_AVERAGE_PRECISION
-}
+# pb2_to_d3m_metric = {
+#     0 : None,  # METRIC_UNDEFINED
+#     1 : d3m_problem.PerformanceMetric.ACCURACY,
+#     2 : None,  # PRECISION
+#     3 : None,  # RECALL
+#     4 : d3m_problem.PerformanceMetric.F1,
+#     5 : d3m_problem.PerformanceMetric.F1_MICRO,
+#     6 : d3m_problem.PerformanceMetric.F1_MACRO,
+#     7 : d3m_problem.PerformanceMetric.ROC_AUC,
+#     8 : d3m_problem.PerformanceMetric.ROC_AUC_MICRO,
+#     9 : d3m_problem.PerformanceMetric.ROC_AUC_MACRO,
+#     10 : d3m_problem.PerformanceMetric.MEAN_SQUARED_ERROR,
+#     11 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR,
+#     12 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR_AVG,
+#     13 : d3m_problem.PerformanceMetric.MEAN_ABSOLUTE_ERROR,
+#     14 : d3m_problem.PerformanceMetric.R_SQUARED,
+#     15 : d3m_problem.PerformanceMetric.NORMALIZED_MUTUAL_INFORMATION,
+#     16 : d3m_problem.PerformanceMetric.JACCARD_SIMILARITY_SCORE,
+#     17 : d3m_problem.PerformanceMetric.PRECISION_AT_TOP_K,
+# #    18 : d3m_problem.PerformanceMetric.OBJECT_DETECTION_AVERAGE_PRECISION
+# }
 
 
 # The output of this function should be the same sas the output for
 # d3m/metadata/problem.py:parse_problem_description
-def problem_to_dict(problem) -> dict:
+
+def problem_to_dict(problem) -> typing.Dict:
     description = {
         'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
         'problem': {
@@ -132,6 +151,122 @@ def problem_to_dict(problem) -> dict:
 
     return description
 
+def to_proto_primitive(primitive_base: PrimitiveBase) -> Primitive:
+    """
+    Convert d3m Primitive to protocol buffer Prmitive
+    """
+    metadata = primitive_base.metadata.query()
+    return Primitive(
+        id = metadata['id'],
+        version = metadata['version'],
+        python_path = metadata['python_path'],
+        name = metadata['name'],
+        digest = metadata['digest'] if 'digest' in metadata else None
+    )
+
+def to_proto_primitive_step(step : PrimitiveStep) -> PipelineDescriptionStep:
+    """
+    Convert d3m PrimitiveStep to protocol buffer PipelineDescriptionStep
+    """
+    arguments = {}
+    for argument_name, argument_desc in step.arguments.items():
+        if argument_desc['type']==ArgumentType.CONTAINER:
+            # ArgumentType.CONTAINER
+            arguments[argument_name] = PrimitiveStepArgument(
+                container=argument_desc['data'])
+        else:
+            # ArgumentType.DATA
+            arguments[argument_name] = PrimitiveStepArgument(
+                data= argument_desc['data'])
+    outputs = [StepOutput(id=output) for output in step.outputs]
+    hyperparams = {}
+    for name, hyperparam_dict in step.hyperparams:
+        hyperparam_type = hyperparam_dict['type']
+        hyperparam_data = hyperparam_dict['data']
+        if hyperparam_type==ArgumentType.CONTAINER:
+            hyperparam = PrimitiveStepHyperparameter(container=hyperparam_data)
+        elif hyperparam_type==ArgumentType.DATA:
+            hyperparam = PrimitiveStepHyperparameter(data=hyperparam_data)
+        elif hyperparam_type==ArgumentType.PRIMITIVE:
+            hyperparam = PrimitiveStepHyperparameter(primitive=hyperparam_data)
+        elif hyperparam_type==ArgumentType.VALUE:
+            hyperparam = PrimitiveStepHyperparameter(value=hyperparam_data)
+        else:
+            # Should never get here. Dataset is not a valid ArgumentType
+            hyperparam = PrimitiveStepHyperparameter(data_set=hyperparam_data)
+        hyperparams[name] = hyperparam
+    primitive_description = PrimitivePipelineDescriptionStep(
+        primitive=to_proto_primitive(step),
+        arguments=arguments,
+        outputs=outputs,
+        hyperparams=hyperparams,
+        users=[PipelineDescriptionUser(id=user_description)
+               for user_description in step.users]
+    )
+    return PipelineDescriptionStep(primitive=primitive_description)
+
+def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
+    """
+    Convert d3m Pipeline to protocol buffer PipelineDescription
+    """
+    inputs = []
+    outputs = []
+    steps = []
+    users = []
+    for input_description in pipeline.inputs:
+        if 'name' in input_description:
+            inputs.append(PipelineDescriptionInput(input_description['name']))
+    for output_description in pipeline.outputs:
+        outputs.append(
+            PipelineDescriptionOutput(
+                name=output_description['name'] if 'name' in output_description else None,
+                data=output_description['data']))
+    for step in pipeline.steps:
+        if isinstance(step, PrimitiveStep):
+            step_description = to_proto_primitive_step(step)
+        elif isinstance(step, SubpipelineStep):
+            # TODO: Subpipeline not yet implemented
+            # PipelineDescriptionStep(pipeline=pipeline_description)
+            pass
+        else:
+            # TODO: PlaceholderStep not yet implemented
+            #PipelineDescriptionStep(placeholder=placeholde_description)
+            pass
+        steps.append(step_description)
+    for user in pipeline.users:
+        users.append(PipelineDescriptionUser(
+            id=user['id'],
+            reason=user['reason'] if 'reason' in user else None,
+            rationale=user['rationale'] if 'rationale' in user else None
+        ))
+    return PipelineDescription(
+        id=pipeline.id,
+        source=pipeline.source,
+        created=pipeline.created,
+        context=pipeline.context,
+        inputs=inputs,
+        outputs=outputs,
+        steps=steps,
+        name=pipeline.name,
+        description=pipeline.description,
+        users=users
+    )
+
+def to_proto_step_descriptions(pipeline : Pipeline) -> typing.List[StepDescription]:
+    '''
+    Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
+    '''
+    decriptions = []
+    for step in pipeline.steps:
+        if isinstance(step, PrimitiveStep):
+            free = step.get_free_hyperparms()
+            decriptions.append(StepDescription(
+                primitive=PrimitiveStepDescription(hyperparams=free)))
+        else:
+            # TODO: Subpipeline not yet implemented
+            pass
+    return decriptions
+
 '''
 This class implements the CoreServicer base class. The CoreServicer defines the methods that must be supported by a
 TA2 server implementation. The CoreServicer class is generated by grpc using the core.proto descriptor file. See:
@@ -155,8 +290,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def Hello(self, request, context):
         self.log_msg(msg="Hello invoked")
         # TODO: Figure out what we should be sending back to TA3 here.
-        return HelloResponse(user_agent="SRI",
-                             version="1.3",
+        return HelloResponse(user_agent="ISI",
+                             version="2.0",
                              allowed_value_types="",
                              supported_extensions="")
 
@@ -206,21 +341,23 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             stratified=True
         )
         targets = []
-        targets.append(ProblemTarget(
-            int32 target_index = 1;
-            string resource_id = 2;
-            int32 column_index = 3;
-            string column_name = 4;
-            int32 clusters_number = 5;
-        )
+        problem_dict = self.controller.problem
+        for target_dict in problem_dict['inputs']['targets']:
+            targets.append(ProblemTarget(
+                target_index = target_dict['target_index'],
+                resource_id = target_dict['resource_id'],
+                column_index = target_dict['column_index'],
+                column_name = target_dict['column_name'],
+                clusters_number = target_dict['clusters_number']
+            )
         )
 
         score = Score(
             metric=ProblemPerformanceMetric(
                 metric=PerformanceMetric(
-                    self.controller.candidate_value['validation_metrics']['metric'])
+                    self.controller.candidate_value['validation_metrics']['metric']),
                 k=0,
-                pos_label = '')
+                pos_label = ''),
             fold=0,
             targets=targets
         )
@@ -241,17 +378,17 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             scores=scores
         ))
         # Add a second result to test streaming responses
-        searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
-            progress=Progress(state=core_pb2.RUNNING,
-            status="Done",
-            start=timestamp.GetCurrentTime(),
-            end=timestamp.GetCurrentTime()),
-            done_ticks=0,
-            all_ticks=0,
-            solution_id="JIOEPB343", # TODO: Populate this with the pipeline id
-            internal_score=0,
-            scores=None
-        ))
+        # searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
+        #     progress=Progress(state=core_pb2.RUNNING,
+        #     status="Done",
+        #     start=timestamp.GetCurrentTime(),
+        #     end=timestamp.GetCurrentTime()),
+        #     done_ticks=0,
+        #     all_ticks=0,
+        #     solution_id="JIOEPB343", # TODO: Populate this with the pipeline id
+        #     internal_score=0,
+        #     scores=None
+        # ))
         for solution in searchSolutionsResults:
             yield solution
 
@@ -332,7 +469,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def ListPrimitives(self, request, context):
-        pass
+        primitives = []
+        for python_path in controller.index.search():
+            primitives.append(to_proto_primitive(
+                controller.index.get_primitive(python_path)))
+        return ListPrimitivesResponse(primitives = primitives)
+
 
 
     def ProduceSolution(self, request, context):
@@ -348,7 +490,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def DescribeSolution(self, request, context):
-        pass
+        pipeline = controller.getFittedPipeline(request.solution_id)
+        return DescribeSolutionRespose(
+            pipeline=to_proto_pipeline(pipeline),
+            steps=to_proto_step_description(pipeline)
+        )
 
 
     '''
