@@ -34,11 +34,12 @@ from .pipeline_utilities import pipe2str
 T = typing.TypeVar("T")
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
-    problem = problem_doc_metadata.query(())["inputs"]["data"]
+    # get targets
+    targets = problem_doc_metadata.query(())["inputs"][0]["targets"]
+    resID = targets[0]["resource_id"]
+    colIndex = targets[0]["column_index"]
+
     datameta = dataset.metadata
-    target = problem[0]["targets"]
-    resID = target[0]["resID"]
-    colIndex = target[0]["colIndex"]
     datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
     targetlist = []
     for v in range(datalength):

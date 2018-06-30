@@ -66,8 +66,10 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     Split dataset into training and test
     '''
 
-    task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
+    # E.g., TaskType.CLASSIFICATION, TaskType.REGRESSION
+    task_type : TaskType = problem['problem']['task_type']
 
+    # Get target index
     for i in range(len(problem['inputs'])):
         if 'targets' in problem['inputs'][i]:
             break
@@ -75,6 +77,17 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
 
+    # Set Target and TrueTarget semantic types
+    semantic_types = list(dataset.metadata.query(
+        (res_id, ALL_ELEMENTS, target_index)).get('semantic_types', []))
+    if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+        semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+        dataset.metadata = dataset.metadata.update(
+            (res_id, ALL_ELEMENTS, target_index), {'semantic_types': semantic_types})
+    if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+        semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+        dataset.metadata = dataset.metadata.update(
+            (res_id, ALL_ELEMENTS, target_index), {'semantic_types': semantic_types})
     try:
         splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
 
@@ -186,6 +199,10 @@ class Controller:
         self.output_temp_dir: str = ""
         self.output_logs_dir: str = ""
 
+        # !!!!temp
+        self.candidate = None
+        self.candidate_value = None
+
     def initialize_from_config(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -208,15 +225,65 @@ class Controller:
         # Templates
         self.load_templates()
 
+    def initialize_from_ta3(self, config: typing.Dict):
+        self.config = config
+
+        output_dir = os.path.abspath(os.environ['D3MOUTPTUDIR'])
+        pipelines_dir = os.path.join(output_dir, 'pipelines')
+        executables_dir = os.path.join(output_dir, 'exectuables')
+        supporting_files_dir = os.path.join(output_dir, 'supporting_files')
+        temp_dir = os.path.join(output_dir, 'temp')
+
+        self.config['pipelines'] = pipelines_dir
+        self.config['executables_root'] = executables_dir
+        self.config['supporting_files'] = supporting_files_dir
+        self.config['temp_storage_root'] = temp_dir
+
+        self.problem: typing.Dict = config['problem']
+        self.problem_doc_metadata = Metadata(self.problem)
+
+        # Already parsed
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
+
+        # Dataset
+        loader = D3MDatasetLoader()
+        dataset_uri = config['dataset_schema']
+        if not dataset_uri.startswith('file://'):
+            dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
+        self.dataset = loader.load(dataset_uri=dataset_uri)
+        self.dataset, self.test_dataset = split_dataset(self.dataset, self.problem)
+
+
+        # Resource limits
+        self.num_cpus = int(config.get('cpus', 0))
+        self.ram = config.get('ram', 0)
+        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        # Templates
+        self.load_templates()
+
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
 
+<<<<<<< HEAD
         self._load_schema(config)
         self._create_output_directory(config)
+=======
+        # Problem
+        self.problem = parse_problem_description(config['problem_schema'])
+        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
+>>>>>>> temp checkin
 
         # Dataset
         loader = D3MDatasetLoader()
 
+<<<<<<< HEAD
         json_file = os.path.abspath(self.dataset_schema_file)
+=======
+        json_file = os.path.abspath(config['dataset_schema'])
+>>>>>>> temp checkin
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
@@ -235,6 +302,16 @@ class Controller:
         # Dataset
         self.dataset_schema_file = config['dataset_schema']
 
+<<<<<<< HEAD
+=======
+        # for index in range(self.test_dataset.metadata.query(())['dimension']['length']):
+        #     resource = str(index)
+        #     if ('https://metadata.datadrivendiscovery.org/types/DatasetEntryPoint' in self.test_dataset.metadata.query((str(index),))['semantic_types']
+        #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
+        #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
+        #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
+
+>>>>>>> temp checkin
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
@@ -289,10 +366,13 @@ class Controller:
             if not os.path.exists(path):
                 os.makedirs(path)
 
+<<<<<<< HEAD
+=======
+        # Templates
+        self.load_templates()
+>>>>>>> temp checkin
 
     def load_templates(self) -> None:
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
         # find the data resources type
         self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
         with open(self.dataset_schema_file,'r') as dataset_description_file:
@@ -371,6 +451,9 @@ class Controller:
         candidate, value = search.search_one_iter()
 
         # assert "fitted_pipe" in candidate, "argument error!"
+
+        self.candidate = candidate
+        self.candidate_value = value
 
         if candidate is None:
             print("[ERROR] not candidate!")
