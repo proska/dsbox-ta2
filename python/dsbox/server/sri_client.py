@@ -5,6 +5,7 @@ path_setup()
 import sys
 print('sys.path', sys.path)
 
+import argparse
 import grpc
 import sys
 import core_pb2_grpc as cpg
@@ -19,6 +20,7 @@ from core_pb2 import ScoreSolutionRequest
 from core_pb2 import GetScoreSolutionResultsRequest
 from core_pb2 import SolutionRunUser
 from core_pb2 import EndSearchSolutionsRequest
+from core_pb2 import DescribeSolutionRequest
 
 from value_pb2 import Value
 from value_pb2 import ValueType
@@ -39,12 +41,14 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 '''
-This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process
+This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process.
+
+Based on SRI's TA2 test client
 '''
 class Client(object):
 
     '''
-    Main entry point for the SRI TA2 test client
+    Main entry point for the TA2 test client
     '''
     def main(self, argv):
         _logger.info("Running TA2/TA3 Interface version v2018.6.2");
@@ -56,8 +60,17 @@ class Client(object):
         # Create the stub to be used in each message call
         stub = cpg.CoreStub(channel)
 
-        # Make a set of calls that follow the basic pipeline search
-        self.basicPipelineSearch(stub)
+        parser = argparse.ArgumentParser(description='Dummy TA3 client')
+        parser.add_argument('--basic', action='store_true')
+        parser.add_argument('--solution')
+        args = parser.parse_args()
+
+        if args.basic:
+            # Make a set of calls that follow the basic pipeline search
+            self.basicPipelineSearch(stub)
+        elif args.solution:
+            solution_id = args.solution
+            self.describeSolution(stub, solution_id)
 
 
     '''
@@ -117,7 +130,7 @@ class Client(object):
         _logger.info("Calling Search Solutions:")
         reply = stub.SearchSolutions(
             SearchSolutionsRequest(
-                user_agent="SRI Test Client",
+                user_agent="Test Client",
                 version="2018.6.2",
                 time_bound=10, # minutes
                 priority=0,
@@ -253,6 +266,14 @@ class Client(object):
         stub.EndSearchSolutions(EndSearchSolutionsRequest(
             search_id=search_id
         ))
+
+    def describeSolution(self, stub, solution_id):
+        _logger.info("Calling DescribeSolution with solution_id: " + solution_id)
+        reply = stub.DescribeSolution(DescribeSolutionRequest(
+            solution_id=solution_id
+        ))
+        log_msg(reply)
+        return reply
 
 
 '''
