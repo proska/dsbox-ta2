@@ -1,5 +1,5 @@
+import collections
 import os
-import pdb
 import sys
 import typing
 
@@ -10,6 +10,7 @@ print(ta3ta2_api)
 sys.path.append(ta3ta2_api)
 
 
+import d3m
 import d3m.metadata.problem as d3m_problem
 
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep, ArgumentType
@@ -28,11 +29,13 @@ import problem_pb2
 import value_pb2
 
 # import autoflowconfig
+from core_pb2 import DescribeSolutionResponse
 from core_pb2 import EndSearchSolutionsResponse
 from core_pb2 import EvaluationMethod
 from core_pb2 import GetScoreSolutionResultsResponse
 from core_pb2 import GetSearchSolutionsResultsResponse
 from core_pb2 import HelloResponse
+from core_pb2 import ListPrimitivesResponse
 from core_pb2 import PrimitiveStepDescription
 from core_pb2 import Progress
 from core_pb2 import ProgressState
@@ -40,6 +43,7 @@ from core_pb2 import Score
 from core_pb2 import ScoreSolutionResponse
 from core_pb2 import ScoringConfiguration
 from core_pb2 import SearchSolutionsResponse
+from core_pb2 import SolutionSearchScore
 from core_pb2 import StepDescription
 from core_pb2 import SubpipelineStepDescription
 
@@ -52,6 +56,11 @@ from pipeline_pb2 import PrimitivePipelineDescriptionStep
 from pipeline_pb2 import PrimitiveStepArgument
 from pipeline_pb2 import PrimitiveStepHyperparameter
 from pipeline_pb2 import StepOutput
+from pipeline_pb2 import ContainerArgument
+from pipeline_pb2 import DataArgument
+from pipeline_pb2 import PrimitiveArgument
+from pipeline_pb2 import ValueArgument
+from pipeline_pb2 import PrimitiveArguments
 
 from problem_pb2 import ProblemPerformanceMetric
 from problem_pb2 import PerformanceMetric
@@ -60,6 +69,12 @@ from problem_pb2 import ProblemTarget
 from primitive_pb2 import Primitive
 
 from value_pb2 import Value
+from value_pb2 import ValueError
+from value_pb2 import DoubleList
+from value_pb2 import Int64List
+from value_pb2 import BoolList
+from value_pb2 import StringList
+from value_pb2 import BytesList
 
 from dsbox.controller.controller import Controller
 
@@ -95,22 +110,6 @@ _logger = logging.getLogger(__name__)
 # d3m/metadata/problem.py:parse_problem_description
 
 def problem_to_dict(problem) -> typing.Dict:
-    description = {
-        'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
-        'problem': {
-            'id': problem.problem.id,
-            # "problemVersion" is required by the schema, but we want to be compatible with problem
-            # descriptions which do not adhere to the schema.
-            'version': problem.problem.version,
-            'name': problem.problem.name,
-            'task_type': d3m_problem.TaskType(problem.problem.task_type),
-            'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype)
-        },
-        # 'outputs': {
-        #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
-        # }
-    }
-
     performance_metrics = []
     for metrics in problem.problem.performance_metrics:
         if metrics.metric==0:
@@ -129,7 +128,24 @@ def problem_to_dict(problem) -> typing.Dict:
             'metric' : d3m_metric,
             'params' : params
         })
-    description['problem']['performance_metrics'] = performance_metrics
+
+    description: typing.Dict[str, typing.ANY] = {
+        'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
+        'problem': {
+            'id': problem.problem.id,
+            # "problemVersion" is required by the schema, but we want to be compatible with problem
+            # descriptions which do not adhere to the schema.
+            'version': problem.problem.version,
+            'name': problem.problem.name,
+            'task_type': d3m_problem.TaskType(problem.problem.task_type),
+            'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
+            'performance_metrics': performance_metrics
+        },
+        # Not Needed
+        # 'outputs': {
+        #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
+        # }
+    }
 
     inputs = []
     for input in problem.inputs:
@@ -150,6 +166,91 @@ def problem_to_dict(problem) -> typing.Dict:
     description['inputs'] = inputs
 
     return description
+
+def to_proto_value(value):
+    is_list = isinstance(value, collections.Iterable)
+    if not is_list:
+        if isinstance(value, int):
+            return Value(int64=value)
+        elif isinstance(value, float):
+            return Value(double=value)
+        elif isinstance(value, bool):
+            return Value(bool=value)
+        elif isinstance(value, str):
+            return Value(string=value)
+        elif isinstance(value, bytes):
+            return Value(bytes=value)
+        else:
+            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+
+    if len(value) == 0:
+        # what would be an appropriate default for empty list?
+        return Value(string_list=StringList())
+
+    sample = value[0]
+    if isinstance(sample, int):
+        alist = Int64List()
+        for x in value:
+            alist.list.append(x)
+        proto_value = Value(int64_list=alist)
+    elif isinstance(sample, float):
+        alist = DoubleList()
+        for x in value:
+            alist.list.append(x)
+        proto_value = Value(double_list=alist)
+    elif isinstance(sample, bool):
+        alist = BoolList()
+        for x in value:
+            alist.list.append(x)
+        proto_value = Value(bool_list=alist)
+    elif isinstance(sample, str):
+        alist = StringList()
+        for x in value:
+            alist.list.append(x)
+        proto_value = Value(string_list=alist)
+    elif isinstance(sample, bytes):
+        alist = BytesList()
+        for x in value:
+            alist.list.append(x)
+        proto_value = Value(bytes_list=alist)
+    else:
+        raise ValueError('to_proto_value: Unknown value list type {}({})'.format(type(sample), sample))
+
+    return proto_value
+
+def to_proto_value_with_type(value, typing_instance):
+    if value is None:
+        types = list(typing_instance.__args__)
+        types.remove(type(None))
+        if int in types:
+            return Value(int64=value)
+        elif float in types:
+            return Value(double=value)
+        elif bool in types:
+            return Value(bool=value)
+        elif str in types:
+            return Value(string=value)
+        elif bytes in types:
+            return Value(bytes=value)
+        else:
+            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+    elif isinstance(value, collections.Iterable) and len(value)==0:
+        types = list(typing_instance.__args__)
+        types.remove(type(None))
+        if int in types:
+            return Value(int64_list=value)
+        elif float in types:
+            return Value(double_list=value)
+        elif bool in types:
+            return Value(bool_list=value)
+        elif str in types:
+            return Value(string_list=value)
+        elif bytes in types:
+            return Value(bytes_list=value)
+        else:
+            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+    else:
+        return to_proto_value(value)
 
 def to_proto_primitive(primitive_base: PrimitiveBase) -> Primitive:
     """
@@ -173,30 +274,31 @@ def to_proto_primitive_step(step : PrimitiveStep) -> PipelineDescriptionStep:
         if argument_desc['type']==ArgumentType.CONTAINER:
             # ArgumentType.CONTAINER
             arguments[argument_name] = PrimitiveStepArgument(
-                container=argument_desc['data'])
+                container=ContainerArgument(data=argument_desc['data']))
         else:
             # ArgumentType.DATA
             arguments[argument_name] = PrimitiveStepArgument(
-                data= argument_desc['data'])
+                data=DataArgument(data=argument_desc['data']))
     outputs = [StepOutput(id=output) for output in step.outputs]
     hyperparams = {}
-    for name, hyperparam_dict in step.hyperparams:
+    for name, hyperparam_dict in step.hyperparams.items():
         hyperparam_type = hyperparam_dict['type']
         hyperparam_data = hyperparam_dict['data']
         if hyperparam_type==ArgumentType.CONTAINER:
-            hyperparam = PrimitiveStepHyperparameter(container=hyperparam_data)
+            hyperparam = PrimitiveStepHyperparameter(container=ContainerArgument(data=to_proto_value(hyperparam_data)))
         elif hyperparam_type==ArgumentType.DATA:
-            hyperparam = PrimitiveStepHyperparameter(data=hyperparam_data)
+            hyperparam = PrimitiveStepHyperparameter(data=DataArgument(data=to_proto_value(hyperparam_data)))
         elif hyperparam_type==ArgumentType.PRIMITIVE:
-            hyperparam = PrimitiveStepHyperparameter(primitive=hyperparam_data)
+            hyperparam = PrimitiveStepHyperparameter(primitive=PrimitiveArgument(data=to_proto_value(hyperparam_data)))
         elif hyperparam_type==ArgumentType.VALUE:
-            hyperparam = PrimitiveStepHyperparameter(value=hyperparam_data)
+            hyperparam = PrimitiveStepHyperparameter(value=ValueArgument(data=to_proto_value(hyperparam_data)))
         else:
-            # Should never get here. Dataset is not a valid ArgumentType
-            hyperparam = PrimitiveStepHyperparameter(data_set=hyperparam_data)
+            # Dataset is not a valid ArgumentType
+            # Should never get here.
+            raise ValueError('to_proto_primitive_step: invalid hyperparam type {}'.format(hyperparam_type))
         hyperparams[name] = hyperparam
     primitive_description = PrimitivePipelineDescriptionStep(
-        primitive=to_proto_primitive(step),
+        primitive=to_proto_primitive(step.primitive),
         arguments=arguments,
         outputs=outputs,
         hyperparams=hyperparams,
@@ -215,7 +317,7 @@ def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
     users = []
     for input_description in pipeline.inputs:
         if 'name' in input_description:
-            inputs.append(PipelineDescriptionInput(input_description['name']))
+            inputs.append(PipelineDescriptionInput(name=input_description['name']))
     for output_description in pipeline.outputs:
         outputs.append(
             PipelineDescriptionOutput(
@@ -242,7 +344,7 @@ def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
     return PipelineDescription(
         id=pipeline.id,
         source=pipeline.source,
-        created=pipeline.created,
+        created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
         context=pipeline.context,
         inputs=inputs,
         outputs=outputs,
@@ -252,20 +354,28 @@ def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
         users=users
     )
 
-def to_proto_step_descriptions(pipeline : Pipeline) -> typing.List[StepDescription]:
+def to_proto_steps_description(pipeline : Pipeline) -> typing.List[StepDescription]:
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
+    # Todo: To be implemented
     decriptions = []
-    for step in pipeline.steps:
-        if isinstance(step, PrimitiveStep):
-            free = step.get_free_hyperparms()
-            decriptions.append(StepDescription(
-                primitive=PrimitiveStepDescription(hyperparams=free)))
-        else:
-            # TODO: Subpipeline not yet implemented
-            pass
     return decriptions
+
+    # for step in pipeline.steps:
+    #     print(step)
+    #     if isinstance(step, PrimitiveStep):
+    #         free = step.get_free_hyperparms()
+    #         values = {}
+    #         for name, hyperparam_class in free.items():
+    #             default = hyperparam_class.get_default()
+    #             values[name] = to_proto_value_with_type(default, hyperparam_class.structural_type)
+    #         decriptions.append(StepDescription(
+    #             primitive=PrimitiveStepDescription(hyperparams=values)))
+    #     else:
+    #         # TODO: Subpipeline not yet implemented
+    #         pass
+    # return decriptions
 
 '''
 This class implements the CoreServicer base class. The CoreServicer defines the methods that must be supported by a
@@ -330,41 +440,44 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def GetSearchSolutionsResults(self, request, context):
         self.log_msg(msg="GetSearchSolutionsResults invoked with search_id: " + request.search_id)
         # TODO: Read the pipelines we generated and munge them into the response for TA3
+
         timestamp = Timestamp()
+
+        problem = self.controller.problem
+        metrics_result = self.controller.candidate.data['validation_metrics']
+        pipeline = self.controller.candidate.data['pipeline']
         searchSolutionsResults = []
 
-        score = self.controller.candidate_value['validation_metrics']['value']
+        # Todo: controller needs to remember the partition method
         scoring_config = ScoringConfiguration(
-            method=EvaluationMethod.HOLDOUT,
+            method=core_pb2.HOLDOUT,
             train_test_ratio=5,
             random_seed=4676,
-            stratified=True
-        )
+            stratified=True)
         targets = []
-        problem_dict = self.controller.problem
-        for target_dict in problem_dict['inputs']['targets']:
-            targets.append(ProblemTarget(
-                target_index = target_dict['target_index'],
-                resource_id = target_dict['resource_id'],
-                column_index = target_dict['column_index'],
-                column_name = target_dict['column_name'],
-                clusters_number = target_dict['clusters_number']
-            )
-        )
-
-        score = Score(
-            metric=ProblemPerformanceMetric(
-                metric=PerformanceMetric(
-                    self.controller.candidate_value['validation_metrics']['metric']),
-                k=0,
-                pos_label = ''),
-            fold=0,
-            targets=targets
-        )
-        scores = SearchSolutionScore(
-            scoring_configuration=scoring_config,
-            scores=[score]
-        )
+        problem_dict = problem
+        for inputs_dict in problem_dict['inputs']:
+            for target in inputs_dict['targets']:
+                targets.append(ProblemTarget(
+                    target_index = target['target_index'],
+                    resource_id = target['resource_id'],
+                    column_index = target['column_index'],
+                    column_name = target['column_name'],
+                    clusters_number = target['clusters_number']))
+        score_list = []
+        for metric in metrics_result:
+            score_list.append(Score(
+                metric=ProblemPerformanceMetric(
+                    metric=metric['metric'].value,
+                    k=0,
+                    pos_label = ''),
+                fold=0,
+                targets=targets))
+        scores = []
+        scores.append(
+            SolutionSearchScore(
+                scoring_configuration=scoring_config,
+                scores=score_list))
         searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
             progress=Progress(state=core_pb2.COMPLETED,
             status="Done",
@@ -372,7 +485,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             end=timestamp.GetCurrentTime()),
             done_ticks=0, # TODO: Figure out how we want to support this
             all_ticks=0, # TODO: Figure out how we want to support this
-            solution_id="HIDOEI8973", # TODO: Populate this with the pipeline id
+            solution_id=pipeline.id, # TODO: Populate this with the pipeline id
             internal_score=0,
             # scores=None # Optional so we will not tackle it until needed
             scores=scores
@@ -470,9 +583,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
     def ListPrimitives(self, request, context):
         primitives = []
-        for python_path in controller.index.search():
-            primitives.append(to_proto_primitive(
-                controller.index.get_primitive(python_path)))
+        for python_path in d3m.index.search():
+            primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
         return ListPrimitivesResponse(primitives = primitives)
 
 
@@ -490,10 +602,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def DescribeSolution(self, request, context):
-        pipeline = controller.getFittedPipeline(request.solution_id)
-        return DescribeSolutionRespose(
+        # pipeline = controller.getFittedPipeline(request.solution_id)
+        pipeline = self.controller.candidate.data['pipeline']
+        return DescribeSolutionResponse(
             pipeline=to_proto_pipeline(pipeline),
-            steps=to_proto_step_description(pipeline)
+            steps=to_proto_steps_description(pipeline)
         )
 
 

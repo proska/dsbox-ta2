@@ -354,8 +354,6 @@ class Controller:
 
         self.candidate = candidate
         self.candidate_value = value
-        import pdb
-        pdb.set_trace()
 
         if candidate is None:
             print("[ERROR] not candidate!")
