@@ -497,7 +497,6 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-<<<<<<< HEAD
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
@@ -505,15 +504,6 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                             }
                     }],
                     "inputs": ["to_dataframe_step"]
-=======
-                        {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                    }],
-                    "inputs": ["column_parser_step"]
->>>>>>> use ExtractColumnsBySemanticTypes
                 },
 
                 {
@@ -538,11 +528,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-<<<<<<< HEAD
                     "inputs": ["to_dataframe_step"]
-=======
-                    "inputs": ["column_parser_step"]
->>>>>>> use ExtractColumnsBySemanticTypes
                 },
                 {
                     "name": "model_step",

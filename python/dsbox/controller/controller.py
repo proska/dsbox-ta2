@@ -263,27 +263,53 @@ class Controller:
         # Templates
         self.load_templates()
 
-    def initialize_from_config_train_test(self, config: typing.Dict) -> None:
+    def initialize_from_ta3(self, config: typing.Dict):
+        self.config = config
 
-<<<<<<< HEAD
-        self._load_schema(config)
-        self._create_output_directory(config)
-=======
-        # Problem
-        self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        output_dir = os.path.abspath(os.environ['D3MOUTPTUDIR'])
+        pipelines_dir = os.path.join(output_dir, 'pipelines')
+        executables_dir = os.path.join(output_dir, 'exectuables')
+        supporting_files_dir = os.path.join(output_dir, 'supporting_files')
+        temp_dir = os.path.join(output_dir, 'temp')
+
+        self.config['pipelines'] = pipelines_dir
+        self.config['executables_root'] = executables_dir
+        self.config['supporting_files'] = supporting_files_dir
+        self.config['temp_storage_root'] = temp_dir
+
+        self.problem: typing.Dict = config['problem']
+        self.problem_doc_metadata = Metadata(self.problem)
+
+        # Already parsed
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
->>>>>>> temp checkin
+
+        # Dataset
+        loader = D3MDatasetLoader()
+        dataset_uri = config['dataset_schema']
+        if not dataset_uri.startswith('file://'):
+            dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
+        self.dataset = loader.load(dataset_uri=dataset_uri)
+        self.dataset, self.test_dataset = split_dataset(self.dataset, self.problem)
+
+
+        # Resource limits
+        self.num_cpus = int(config.get('cpus', 0))
+        self.ram = config.get('ram', 0)
+        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        # Templates
+        self.load_templates()
+
+    def initialize_from_config_train_test(self, config: typing.Dict) -> None:
+
+        self._load_schema(config)
+        self._create_output_directory(config)
 
         # Dataset
         loader = D3MDatasetLoader()
 
-<<<<<<< HEAD
         json_file = os.path.abspath(self.dataset_schema_file)
-=======
-        json_file = os.path.abspath(config['dataset_schema'])
->>>>>>> temp checkin
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
@@ -302,16 +328,6 @@ class Controller:
         # Dataset
         self.dataset_schema_file = config['dataset_schema']
 
-<<<<<<< HEAD
-=======
-        # for index in range(self.test_dataset.metadata.query(())['dimension']['length']):
-        #     resource = str(index)
-        #     if ('https://metadata.datadrivendiscovery.org/types/DatasetEntryPoint' in self.test_dataset.metadata.query((str(index),))['semantic_types']
-        #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
-        #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
-        #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
-
->>>>>>> temp checkin
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
@@ -365,12 +381,6 @@ class Controller:
                      self.output_temp_dir, self.output_logs_dir]:
             if not os.path.exists(path):
                 os.makedirs(path)
-
-<<<<<<< HEAD
-=======
-        # Templates
-        self.load_templates()
->>>>>>> temp checkin
 
     def load_templates(self) -> None:
         # find the data resources type
