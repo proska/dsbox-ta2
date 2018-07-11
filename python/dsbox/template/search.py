@@ -131,6 +131,8 @@ class DimensionalSearch(typing.Generic[T]):
         candidate, candidate_value = \
             self.setup_initial_candidate(candidate_in, cache)
 
+        all_successful_candidates = [candidate]
+
         # generate an executable pipeline with random steps from conf. space.
 
         # The actual searching process starts here.
@@ -167,7 +169,7 @@ class DimensionalSearch(typing.Generic[T]):
 
             test_values = []
             cross_validation_values =[]
-            sucessful_candidates = []
+            successful_candidates = []
             best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
@@ -190,26 +192,14 @@ class DimensionalSearch(typing.Generic[T]):
                     # res['pipeline'] = pipeline
                     res['fitted_pipeline'] = res['fitted_pipeline']
                     x.data.update(res)
-                    sucessful_candidates.append(x)
+                    successful_candidates.append(x)
             except:
                 traceback.print_exc()
-
-            # for x in new_candidates:
-            #     try:
-            #         result = self.evaluate(x)
-            #         test_values.append(result[0])
-            #         sucessful_candidates.append(x)
-            #         # print("[INFO] Results:")
-            #         # pprint(result)
-            #         # pprint(result[0])
-            #     except:
-            #         # print('Pipeline failed: ', x)
-            #         traceback.print_exc()
 
             # All candidates failed!
             if len(test_values) == 0:
                 print("[ERROR] No Candidate worked!:", test_values)
-                return (None, None)
+                return (None, None, None)
 
             # Find best candidate
             if self.minimize:
@@ -225,21 +215,27 @@ class DimensionalSearch(typing.Generic[T]):
                 print("[WARN] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
                 print("[WARN] CV detail values:", ['{:.4f}'.format(x) for x in results[best_cv_index]['cross_validation_metrics'][0]['values']])
             if candidate_value is None:
-                candidate = sucessful_candidates[best_index]
+                candidate = successful_candidates[best_index]
                 candidate_value = test_values[best_index]
             elif (self.minimize and test_values[best_index] < candidate_value) or \
                 (not self.minimize and test_values[best_index] > candidate_value):
-                candidate = sucessful_candidates[best_index]
+                candidate = successful_candidates[best_index]
                 candidate_value = test_values[best_index]
+
+            all_successful_candidates.extend(successful_candidates)
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
         # END FOR
+
+        # print("\n" * 10)
+        # print(len(all_successful_candidates))
+        # print("\n" * 10)
 
         # shutdown the cache manager
         manager.shutdown()
 
         # here we can get the details of pipelines from "candidate.data"
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
-        return (candidate, candidate_value)
+        return (candidate, candidate_value, all_successful_candidates)
 
 
 

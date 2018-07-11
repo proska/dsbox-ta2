@@ -87,7 +87,8 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
-        use_test_splits = False / 0
+        # use_test_splits = False / 0
+        use_test_splits = False
 
         print("[INFO] Succesfully parsed test data")
     except:
@@ -108,7 +109,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
                 train = dataset[res_id].iloc[train_index,:]
                 test = dataset[res_id].iloc[test_index,:]
 
-        print("[INFO] Failed test data parse/ using stratified kfold data instead")
+        print("[INFO] Failed test data parse; using stratified kfold data instead")
 
     # Generate training dataset
     train_dataset = copy.copy(dataset)
@@ -368,7 +369,7 @@ class Controller:
                 self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
 
 
-        candidate, value = search.search_one_iter()
+        candidate, value, all_candidates = search.search_one_iter()
 
         # assert "fitted_pipe" in candidate, "argument error!"
 
@@ -382,7 +383,7 @@ class Controller:
             print('Training {} = {}'.format(
                 candidate.data['training_metrics'][0]['metric'],
                 candidate.data['training_metrics'][0]['value']))
-            print('Training {} = {}'.format(
+            print('Cross validation {} = {}'.format(
                 candidate.data['cross_validation_metrics'][0]['metric'],
                 candidate.data['cross_validation_metrics'][0]['value']))
             print('Test {} = {}'.format(
@@ -399,8 +400,23 @@ class Controller:
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
             f.write(str(metrics) + "\n")
-            f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+            f.write("train: " + str(candidate.data['training_metrics'][0]['value']) + "\n")
+            f.write("cross-valid: " + str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+            f.write("test: " + str(candidate.data['test_metrics'][0]['value']) + "\n")
+            f.write("\n" * 3)
+            # f.close()
+
+            # print("\n" * 10)
+            # print(len(all_candidates))
+            # print("\n" * 10)
+
+            for c in all_candidates:
+                f.write(str(c) + "\n")
+                f.write(str(c.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(c.data['cross_validation_metrics'][0]['value']) + "\n")
+                f.write(str(c.data['test_metrics'][0]['value']) + "\n")
+                f.write("\n")
+            
             f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")

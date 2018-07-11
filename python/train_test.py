@@ -14,8 +14,10 @@ for conf in os.listdir(config_dir):
 	command = "python ta2-search " + config_dir + conf
 	print(command)
 
-	curr_proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-	curr_timer = Timer(60, kill, [curr_proc])
+	# curr_proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+	curr_proc = subprocess.Popen(command, shell=True)
+
+	curr_timer = Timer(60 * (60 * 3), kill, [curr_proc]) # seconds x minutes
 
 	timers.append(curr_timer)
 
