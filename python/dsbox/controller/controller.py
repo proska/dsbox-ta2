@@ -228,57 +228,22 @@ class Controller:
     def initialize_from_ta3(self, config: typing.Dict):
         self.config = config
 
-        output_dir = os.path.abspath(os.environ['D3MOUTPTUDIR'])
-        pipelines_dir = os.path.join(output_dir, 'pipelines')
-        executables_dir = os.path.join(output_dir, 'exectuables')
-        supporting_files_dir = os.path.join(output_dir, 'supporting_files')
-        temp_dir = os.path.join(output_dir, 'temp')
+        config['saving_folder_loc'] = os.path.abspath(os.environ['D3MOUTPUTDIR'])
+        self._create_output_directory(config)
 
-        self.config['pipelines'] = pipelines_dir
-        self.config['executables_root'] = executables_dir
-        self.config['supporting_files'] = supporting_files_dir
-        self.config['temp_storage_root'] = temp_dir
+        # pipelines_dir = os.path.join(output_dir, 'pipelines')
+        # executables_dir = os.path.join(output_dir, 'exectuables')
+        # supporting_files_dir = os.path.join(output_dir, 'supporting_files')
+        # temp_dir = os.path.join(output_dir, 'temp')
 
-        self.problem: typing.Dict = config['problem']
-        self.problem_doc_metadata = Metadata(self.problem)
+        # self.config['pipelines'] = pipelines_dir
+        # self.config['executables_root'] = executables_dir
+        # self.config['supporting_files'] = supporting_files_dir
+        # self.config['temp_storage_root'] = temp_dir
 
-        # Already parsed
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
-
-        # Dataset
-        loader = D3MDatasetLoader()
-        dataset_uri = config['dataset_schema']
-        if not dataset_uri.startswith('file://'):
-            dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
-        self.dataset = loader.load(dataset_uri=dataset_uri)
-        self.dataset, self.test_dataset = split_dataset(self.dataset, self.problem)
-
-
-        # Resource limits
-        self.num_cpus = int(config.get('cpus', 0))
-        self.ram = config.get('ram', 0)
-        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-
-        # Templates
-        self.load_templates()
-
-    def initialize_from_ta3(self, config: typing.Dict):
-        self.config = config
-
-        output_dir = os.path.abspath(os.environ['D3MOUTPTUDIR'])
-        pipelines_dir = os.path.join(output_dir, 'pipelines')
-        executables_dir = os.path.join(output_dir, 'exectuables')
-        supporting_files_dir = os.path.join(output_dir, 'supporting_files')
-        temp_dir = os.path.join(output_dir, 'temp')
-
-        self.config['pipelines'] = pipelines_dir
-        self.config['executables_root'] = executables_dir
-        self.config['supporting_files'] = supporting_files_dir
-        self.config['temp_storage_root'] = temp_dir
-
-        self.problem: typing.Dict = config['problem']
-        self.problem_doc_metadata = Metadata(self.problem)
+        self.problem: typing.Dict = config['problem_parsed']
+        self.problem_doc_metadata = Metadata(config['problem_json'])
+        self.problem_doc_metadata.pretty_print()
 
         # Already parsed
         self.task_type = self.problem['problem']['task_type']
@@ -286,6 +251,7 @@ class Controller:
 
         # Dataset
         loader = D3MDatasetLoader()
+        self.dataset_schema_file = config['dataset_schema']
         dataset_uri = config['dataset_schema']
         if not dataset_uri.startswith('file://'):
             dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))

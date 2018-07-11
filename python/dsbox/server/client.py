@@ -136,7 +136,7 @@ class Client(object):
                 priority=0,
                 allowed_value_types=[value_pb2.RAW],
                 problem=ProblemDescription(problem=Problem(
-                    id="185_baseball",
+                    id="38_sick",
                     version="3.1.2",
                     name="38_sick",
                     description="Sick",
@@ -144,9 +144,7 @@ class Client(object):
                     task_subtype=problem_pb2.BINARY,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=problem_pb2.F1_MACRO,
-                            k=0,
-                            pos_label="None"
+                            metric=problem_pb2.F1_MACRO
                         )]
                     ),
                     inputs=[ProblemInput(
@@ -232,8 +230,7 @@ class Client(object):
 
         reply = stub.ScoreSolution(ScoreSolutionRequest(
             solution_id=solution_id,
-            inputs=[ Value(double=0.9),
-                     Value(double=0.9)],
+            inputs=[ Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')],
             performance_metrics=[ProblemPerformanceMetric(
                 metric=problem_pb2.ACCURACY
             )],

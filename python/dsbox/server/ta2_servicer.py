@@ -16,17 +16,18 @@ import d3m.metadata.problem as d3m_problem
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep, ArgumentType
 from d3m.primitive_interfaces.base import PrimitiveBase
 
-import core_pb2
-import core_pb2_grpc
 import logging
-from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
 import random
 import string
 
-from pprint import pprint
-
+import core_pb2
+import core_pb2_grpc
 import problem_pb2
 import value_pb2
+import pipeline_pb2
+
+from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
+from pprint import pprint
 
 # import autoflowconfig
 from core_pb2 import DescribeSolutionResponse
@@ -69,14 +70,20 @@ from problem_pb2 import ProblemTarget
 from primitive_pb2 import Primitive
 
 from value_pb2 import Value
-from value_pb2 import ValueError
-from value_pb2 import DoubleList
-from value_pb2 import Int64List
-from value_pb2 import BoolList
-from value_pb2 import StringList
-from value_pb2 import BytesList
+from value_pb2 import ValueRaw
+from value_pb2 import ValueList
+from value_pb2 import ValueDict
+
+# from value_pb2 import Value
+# from value_pb2 import ValueError
+# from value_pb2 import DoubleList
+# from value_pb2 import Int64List
+# from value_pb2 import BoolList
+# from value_pb2 import StringList
+# from value_pb2 import BytesList
 
 from dsbox.controller.controller import Controller
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
@@ -106,7 +113,7 @@ _logger = logging.getLogger(__name__)
 # }
 
 
-# The output of this function should be the same sas the output for
+# The output of this function should be the same as the output for
 # d3m/metadata/problem.py:parse_problem_description
 
 def problem_to_dict(problem) -> typing.Dict:
@@ -118,11 +125,11 @@ def problem_to_dict(problem) -> typing.Dict:
             d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
         params = {}
         if d3m_metric == d3m_problem.PerformanceMetric.F1:
-            if metrics.pos_label is None:
+            if metrics.pos_label is None or metrics.pos_label=='':
                 params['pos_label'] = '1'
             else:
                 params['pos_label'] = metrics.pos_label
-        if metrics.k is not None:
+        if metrics.k > 0:
             params['k'] = metrics.k
         performance_metrics.append ({
             'metric' : d3m_metric,
@@ -167,90 +174,180 @@ def problem_to_dict(problem) -> typing.Dict:
 
     return description
 
-def to_proto_value(value):
-    is_list = isinstance(value, collections.Iterable)
-    if not is_list:
-        if isinstance(value, int):
-            return Value(int64=value)
-        elif isinstance(value, float):
-            return Value(double=value)
-        elif isinstance(value, bool):
-            return Value(bool=value)
-        elif isinstance(value, str):
-            return Value(string=value)
-        elif isinstance(value, bytes):
-            return Value(bytes=value)
+# The output of this function should be the same as the problemDoc.json
+def problem_to_json(problem) -> typing.Dict:
+    performance_metrics = []
+    for metrics in problem.problem.performance_metrics:
+        if metrics.metric==0:
+            d3m_metric = None
         else:
-            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+            d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
+        params = {}
+        if d3m_metric == d3m_problem.PerformanceMetric.F1:
+            if metrics.pos_label is None or metrics.pos_label=='':
+                params['pos_label'] = '1'
+            else:
+                params['pos_label'] = metrics.pos_label
+        if metrics.k > 0:
+            params['k'] = metrics.k
+        ametric = {
+            'metric' : d3m_metric.unparse(),
+        }
+        if params:
+            ametric['params'] = params
+        performance_metrics.append (ametric)
 
-    if len(value) == 0:
-        # what would be an appropriate default for empty list?
-        return Value(string_list=StringList())
+    description: typing.Dict[str, typing.ANY] = {
+        'about': {
+            'problemSchemaVersion': problem.problem.version,
+            'problemID': problem.problem.id,
+            # "problemVersion" is required by the schema, but we want to be compatible with problem
+            # descriptions which do not adhere to the schema.
+            # 'version': problem.problem.version,
+            'problemName': problem.problem.name,
+            'taskType': d3m_problem.TaskType(problem.problem.task_type).unparse(),
+            'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_subtype).unparse(),
+        }
+        # Not Needed
+        # 'outputs': {
+        #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
+        # }
+    }
 
-    sample = value[0]
-    if isinstance(sample, int):
-        alist = Int64List()
-        for x in value:
-            alist.list.append(x)
-        proto_value = Value(int64_list=alist)
-    elif isinstance(sample, float):
-        alist = DoubleList()
-        for x in value:
-            alist.list.append(x)
-        proto_value = Value(double_list=alist)
-    elif isinstance(sample, bool):
-        alist = BoolList()
-        for x in value:
-            alist.list.append(x)
-        proto_value = Value(bool_list=alist)
-    elif isinstance(sample, str):
-        alist = StringList()
-        for x in value:
-            alist.list.append(x)
-        proto_value = Value(string_list=alist)
-    elif isinstance(sample, bytes):
-        alist = BytesList()
-        for x in value:
-            alist.list.append(x)
-        proto_value = Value(bytes_list=alist)
-    else:
-        raise ValueError('to_proto_value: Unknown value list type {}({})'.format(type(sample), sample))
+    data = []
+    for input in problem.inputs:
+        dataset_id = input.dataset_id
+        for target in input.targets:
+            targets = []
+            targets.append({
+                'targetIndex': target.target_index,
+                'resID': str(target.resource_id),
+                'colIndex': target.column_index,
+                'colName': target.column_name,
+                'clustersNumber': target.clusters_number
+            })
+        data.append({
+            'datasetID': dataset_id,
+            'targets': targets
+        })
 
-    return proto_value
+    description['inputs'] = {
+        'data': data,
+        'performanceMetrics': performance_metrics
+    }
 
-def to_proto_value_with_type(value, typing_instance):
+    return description
+
+def to_proto_value_raw(value):
     if value is None:
-        types = list(typing_instance.__args__)
-        types.remove(type(None))
-        if int in types:
-            return Value(int64=value)
-        elif float in types:
-            return Value(double=value)
-        elif bool in types:
-            return Value(bool=value)
-        elif str in types:
-            return Value(string=value)
-        elif bytes in types:
-            return Value(bytes=value)
-        else:
-            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
-    elif isinstance(value, collections.Iterable) and len(value)==0:
-        types = list(typing_instance.__args__)
-        types.remove(type(None))
-        if int in types:
-            return Value(int64_list=value)
-        elif float in types:
-            return Value(double_list=value)
-        elif bool in types:
-            return Value(bool_list=value)
-        elif str in types:
-            return Value(string_list=value)
-        elif bytes in types:
-            return Value(bytes_list=value)
-        else:
-            raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+        return ValueRaw(NulValue=value_pb2.NULL_VALUE)
+    elif isinstance(value, int):
+        return ValueRaw(int64=value)
+    elif isinstance(value, float):
+        return ValueRaw(double=value)
+    elif isinstance(value, bool):
+        return ValueRaw(bool=value)
+    elif isinstance(value, str):
+        return ValueRaw(string=value)
+    elif isinstance(value, bytes):
+        return ValueRaw(bytes=value)
+    elif isinstance(value, list) or isinstance(value, tuple):
+        alist = []
+        for x in value:
+            alist.append(to_proto_value_raw(x))
+        return ValueRaw(list=ValueList(items=alist))
+    elif isinstance(value, dict):
+        adict = {}
+        for k, v in value.items():
+            adict[k] = to_proto_value_raw(v)
+        return ValueRaw(dict=ValueDict(items=adict))
     else:
-        return to_proto_value(value)
+        raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+
+# def to_proto_value(value):
+#     is_list = isinstance(value, collections.Iterable)
+#     if not is_list:
+#         if isinstance(value, int):
+#             return Value(int64=value)
+#         elif isinstance(value, float):
+#             return Value(double=value)
+#         elif isinstance(value, bool):
+#             return Value(bool=value)
+#         elif isinstance(value, str):
+#             return Value(string=value)
+#         elif isinstance(value, bytes):
+#             return Value(bytes=value)
+#         else:
+#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+
+#     if len(value) == 0:
+#         # what would be an appropriate default for empty list?
+#         return Value(string_list=StringList())
+
+#     sample = value[0]
+#     if isinstance(sample, int):
+#         alist = Int64List()
+#         for x in value:
+#             alist.list.append(x)
+#         proto_value = Value(int64_list=alist)
+#     elif isinstance(sample, float):
+#         alist = DoubleList()
+#         for x in value:
+#             alist.list.append(x)
+#         proto_value = Value(double_list=alist)
+#     elif isinstance(sample, bool):
+#         alist = BoolList()
+#         for x in value:
+#             alist.list.append(x)
+#         proto_value = Value(bool_list=alist)
+#     elif isinstance(sample, str):
+#         alist = StringList()
+#         for x in value:
+#             alist.list.append(x)
+#         proto_value = Value(string_list=alist)
+#     elif isinstance(sample, bytes):
+#         alist = BytesList()
+#         for x in value:
+#             alist.list.append(x)
+#         proto_value = Value(bytes_list=alist)
+#     else:
+#         raise ValueError('to_proto_value: Unknown value list type {}({})'.format(type(sample), sample))
+
+#     return proto_value
+
+# def to_proto_value_with_type(value, typing_instance):
+#     if value is None:
+#         types = list(typing_instance.__args__)
+#         types.remove(type(None))
+#         if int in types:
+#             return Value(int64=value)
+#         elif float in types:
+#             return Value(double=value)
+#         elif bool in types:
+#             return Value(bool=value)
+#         elif str in types:
+#             return Value(string=value)
+#         elif bytes in types:
+#             return Value(bytes=value)
+#         else:
+#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+#     elif isinstance(value, collections.Iterable) and len(value)==0:
+#         types = list(typing_instance.__args__)
+#         types.remove(type(None))
+#         if int in types:
+#             return Value(int64_list=value)
+#         elif float in types:
+#             return Value(double_list=value)
+#         elif bool in types:
+#             return Value(bool_list=value)
+#         elif str in types:
+#             return Value(string_list=value)
+#         elif bytes in types:
+#             return Value(bytes_list=value)
+#         else:
+#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+#     else:
+#         return to_proto_value(value)
 
 def to_proto_primitive(primitive_base: PrimitiveBase) -> Primitive:
     """
@@ -285,13 +382,13 @@ def to_proto_primitive_step(step : PrimitiveStep) -> PipelineDescriptionStep:
         hyperparam_type = hyperparam_dict['type']
         hyperparam_data = hyperparam_dict['data']
         if hyperparam_type==ArgumentType.CONTAINER:
-            hyperparam = PrimitiveStepHyperparameter(container=ContainerArgument(data=to_proto_value(hyperparam_data)))
+            hyperparam = PrimitiveStepHyperparameter(container=ContainerArgument(data=hyperparam_data))
         elif hyperparam_type==ArgumentType.DATA:
-            hyperparam = PrimitiveStepHyperparameter(data=DataArgument(data=to_proto_value(hyperparam_data)))
+            hyperparam = PrimitiveStepHyperparameter(data=DataArgument(data=hyperparam_data))
         elif hyperparam_type==ArgumentType.PRIMITIVE:
-            hyperparam = PrimitiveStepHyperparameter(primitive=PrimitiveArgument(data=to_proto_value(hyperparam_data)))
+            hyperparam = PrimitiveStepHyperparameter(primitive=PrimitiveArgument(data=hyperparam_data))
         elif hyperparam_type==ArgumentType.VALUE:
-            hyperparam = PrimitiveStepHyperparameter(value=ValueArgument(data=to_proto_value(hyperparam_data)))
+            hyperparam = PrimitiveStepHyperparameter(value=ValueArgument(data=Value(raw=to_proto_value_raw(hyperparam_data))))
         else:
             # Dataset is not a valid ArgumentType
             # Should never get here.
@@ -307,7 +404,7 @@ def to_proto_primitive_step(step : PrimitiveStep) -> PipelineDescriptionStep:
     )
     return PipelineDescriptionStep(primitive=primitive_description)
 
-def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
+def to_proto_pipeline(pipeline : Pipeline, id:str = None) -> PipelineDescription:
     """
     Convert d3m Pipeline to protocol buffer PipelineDescription
     """
@@ -341,11 +438,18 @@ def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
             reason=user['reason'] if 'reason' in user else None,
             rationale=user['rationale'] if 'rationale' in user else None
         ))
+    if id is None:
+        id = pipeline.id,
+
+    import pdb
+    pdb.set_trace()
+
+    pipeline_context = pipeline.context.value
     return PipelineDescription(
-        id=pipeline.id,
+        id=id,
         source=pipeline.source,
         created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
-        context=pipeline.context,
+        context=pipeline_context,
         inputs=inputs,
         outputs=outputs,
         steps=steps,
@@ -354,13 +458,68 @@ def to_proto_pipeline(pipeline : Pipeline) -> PipelineDescription:
         users=users
     )
 
+def to_proto_search_solution_requests(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+
+    search_solutions_results = []
+
+    timestamp = Timestamp()
+
+    # Todo: controller needs to remember the partition method
+    scoring_config = ScoringConfiguration(
+        method=core_pb2.HOLDOUT,
+        train_test_ratio=5,
+        random_seed=4676,
+        stratified=True)
+    targets = []
+    problem_dict = problem
+    for inputs_dict in problem_dict['inputs']:
+        for target in inputs_dict['targets']:
+            targets.append(ProblemTarget(
+                target_index = target['target_index'],
+                resource_id = target['resource_id'],
+                column_index = target['column_index'],
+                column_name = target['column_name'],
+                clusters_number = target['clusters_number']))
+    score_list = []
+    for metric in metrics_result:
+        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        if 'k' in metric:
+            ppm = metric['k']
+        if 'pos_label' in metric:
+            ppm = metric['pos_label']
+        score_list.append(Score(
+            metric=ppm,
+            fold=0,
+            targets=targets,
+            value=Value(raw=to_proto_value_raw(metric['value']))))
+    scores = []
+    scores.append(
+        SolutionSearchScore(
+            scoring_configuration=scoring_config,
+            scores=score_list))
+    search_solutions_results.append(GetSearchSolutionsResultsResponse(
+        progress=Progress(state=core_pb2.COMPLETED,
+        status="Done",
+        start=timestamp.GetCurrentTime(),
+        end=timestamp.GetCurrentTime()),
+        done_ticks=0, # TODO: Figure out how we want to support this
+        all_ticks=0, # TODO: Figure out how we want to support this
+        solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
+        internal_score=0,
+        # scores=None # Optional so we will not tackle it until needed
+        scores=scores
+    ))
+
+    return search_solutions_results
+
+
 def to_proto_steps_description(pipeline : Pipeline) -> typing.List[StepDescription]:
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
     # Todo: To be implemented
-    decriptions = []
-    return decriptions
+    descriptions: typing.List[StepDescription] = []
+    return descriptions
 
     # for step in pipeline.steps:
     #     print(step)
@@ -370,12 +529,12 @@ def to_proto_steps_description(pipeline : Pipeline) -> typing.List[StepDescripti
     #         for name, hyperparam_class in free.items():
     #             default = hyperparam_class.get_default()
     #             values[name] = to_proto_value_with_type(default, hyperparam_class.structural_type)
-    #         decriptions.append(StepDescription(
+    #         descriptions.append(StepDescription(
     #             primitive=PrimitiveStepDescription(hyperparams=values)))
     #     else:
     #         # TODO: Subpipeline not yet implemented
     #         pass
-    # return decriptions
+    # return descriptions
 
 '''
 This class implements the CoreServicer base class. The CoreServicer defines the methods that must be supported by a
@@ -387,9 +546,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     The __init__ method is used to establish the underlying TA2 libraries to service requests from the TA3 system.
     '''
-    def __init__(self, libdir):
+    def __init__(self, libdir, output_dir:str = None):
         self.log_msg("Init invoked")
         self.libdir = libdir
+        self.output_dir = output_dir
         self.controller = Controller(libdir)
 
 
@@ -413,16 +573,26 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def SearchSolutions(self, request, context):
         self.log_msg(msg="SearchSolutions invoked")
 
-        problem_description = problem_to_dict(request.problem)
+        problem_json_dict = problem_to_json(request.problem)
+        problem_parsed = problem_to_dict(request.problem)
+        print('==json')
+        pprint(problem_json_dict)
+        print('==parsed')
+        pprint(problem_parsed)
+
 
         # Although called uri, it's just a filepath to datasetDoc.json
         dataset_uri = request.inputs[0].dataset_uri
 
         config_dict = {
-            'problem' : problem_description,
+            'problem_json' : problem_json_dict,
+            'problem_parsed' : problem_parsed,
             'dataset_schema': dataset_uri,
             'timeout' : request.time_bound
         }
+
+        if self.output_dir is not None:
+            config_dict['saving_folder_loc'] = self.output_dir
 
         pprint(config_dict)
 
@@ -439,71 +609,85 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def GetSearchSolutionsResults(self, request, context):
         self.log_msg(msg="GetSearchSolutionsResults invoked with search_id: " + request.search_id)
-        # TODO: Read the pipelines we generated and munge them into the response for TA3
-
-        timestamp = Timestamp()
 
         problem = self.controller.problem
-        metrics_result = self.controller.candidate.data['validation_metrics']
-        pipeline = self.controller.candidate.data['pipeline']
-        searchSolutionsResults = []
+        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
+        metrics_result = self.controller.candidate.data['test_metrics']
+        search_solutions_results = to_proto_search_solution_requests(
+            problem, fitted_pipeline.id, metrics_result)
 
-        # Todo: controller needs to remember the partition method
-        scoring_config = ScoringConfiguration(
-            method=core_pb2.HOLDOUT,
-            train_test_ratio=5,
-            random_seed=4676,
-            stratified=True)
-        targets = []
-        problem_dict = problem
-        for inputs_dict in problem_dict['inputs']:
-            for target in inputs_dict['targets']:
-                targets.append(ProblemTarget(
-                    target_index = target['target_index'],
-                    resource_id = target['resource_id'],
-                    column_index = target['column_index'],
-                    column_name = target['column_name'],
-                    clusters_number = target['clusters_number']))
-        score_list = []
-        for metric in metrics_result:
-            score_list.append(Score(
-                metric=ProblemPerformanceMetric(
-                    metric=metric['metric'].value,
-                    k=0,
-                    pos_label = ''),
-                fold=0,
-                targets=targets))
-        scores = []
-        scores.append(
-            SolutionSearchScore(
-                scoring_configuration=scoring_config,
-                scores=score_list))
-        searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
-            progress=Progress(state=core_pb2.COMPLETED,
-            status="Done",
-            start=timestamp.GetCurrentTime(),
-            end=timestamp.GetCurrentTime()),
-            done_ticks=0, # TODO: Figure out how we want to support this
-            all_ticks=0, # TODO: Figure out how we want to support this
-            solution_id=pipeline.id, # TODO: Populate this with the pipeline id
-            internal_score=0,
-            # scores=None # Optional so we will not tackle it until needed
-            scores=scores
-        ))
-        # Add a second result to test streaming responses
+        for solution in search_solutions_results:
+            yield solution
+
+        # timestamp = Timestamp()
+
+        # problem = self.controller.problem
+
+        # pprint(self.controller.candidate.data)
+
+        # metrics_result = self.controller.candidate.data['test_metrics']
+        # pipeline = self.controller.candidate.data['fitted_pipeline']
+        # searchSolutionsResults = []
+
+        # # Todo: controller needs to remember the partition method
+        # scoring_config = ScoringConfiguration(
+        #     method=core_pb2.HOLDOUT,
+        #     train_test_ratio=5,
+        #     random_seed=4676,
+        #     stratified=True)
+        # targets = []
+        # problem_dict = problem
+        # for inputs_dict in problem_dict['inputs']:
+        #     for target in inputs_dict['targets']:
+        #         targets.append(ProblemTarget(
+        #             target_index = target['target_index'],
+        #             resource_id = target['resource_id'],
+        #             column_index = target['column_index'],
+        #             column_name = target['column_name'],
+        #             clusters_number = target['clusters_number']))
+        # score_list = []
+        # for metric in metrics_result:
+        #     ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        #     if 'k' in metric:
+        #         ppm = metric['k']
+        #     if 'pos_label' in metric:
+        #         ppm = metric['pos_label']
+        #     score_list.append(Score(
+        #         metric=ppm,
+        #         fold=0,
+        #         targets=targets,
+        #         value=Value(raw=to_proto_value_raw(metric['value']))))
+        # scores = []
+        # scores.append(
+        #     SolutionSearchScore(
+        #         scoring_configuration=scoring_config,
+        #         scores=score_list))
         # searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
-        #     progress=Progress(state=core_pb2.RUNNING,
+        #     progress=Progress(state=core_pb2.COMPLETED,
         #     status="Done",
         #     start=timestamp.GetCurrentTime(),
         #     end=timestamp.GetCurrentTime()),
-        #     done_ticks=0,
-        #     all_ticks=0,
-        #     solution_id="JIOEPB343", # TODO: Populate this with the pipeline id
+        #     done_ticks=0, # TODO: Figure out how we want to support this
+        #     all_ticks=0, # TODO: Figure out how we want to support this
+        #     solution_id=pipeline.id, # TODO: Populate this with the pipeline id
         #     internal_score=0,
-        #     scores=None
+        #     # scores=None # Optional so we will not tackle it until needed
+        #     scores=scores
         # ))
-        for solution in searchSolutionsResults:
-            yield solution
+        # # Add a second result to test streaming responses
+        # # searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
+        # #     progress=Progress(state=core_pb2.RUNNING,
+        # #     status="Done",
+        # #     start=timestamp.GetCurrentTime(),
+        # #     end=timestamp.GetCurrentTime()),
+        # #     done_ticks=0,
+        # #     all_ticks=0,
+        # #     solution_id="JIOEPB343", # TODO: Populate this with the pipeline id
+        # #     internal_score=0,
+        # #     scores=None
+        # # ))
+        # for solution in searchSolutionsResults:
+        #     yield solution
 
 
     '''
@@ -525,34 +709,44 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def GetScoreSolutionResults(self, request, context):
         self.log_msg(msg="GetScoreSolutionResults invoked with request_id: " + request.request_id)
+        # For now just return the last scored fitted_pipeline
 
-        scoreSolutionResults = []
-        timestamp = Timestamp()
-        scoreSolutionResults.append(
-            GetScoreSolutionResultsResponse(
-            progress=Progress(state=core_pb2.COMPLETED,
-                              status="Good",
-                              start=timestamp.GetCurrentTime(),
-                              end=timestamp.GetCurrentTime()),
-            scores=[Score(metric=ProblemPerformanceMetric(metric=problem_pb2.ACCURACY,
-                                            k = 0,
-                                            pos_label="0"),
-                          fold=0,
-                          targets=[ProblemTarget(target_index=0,
-                                           resource_id="0",
-                                           column_index=0,
-                                           column_name="0",
-                                           clusters_number=0)],
-                          value=Value(double=0.8))]
-        ))
-        scoreSolutionResults.append(GetScoreSolutionResultsResponse(
-            progress=Progress(state=core_pb2.PENDING,
-                              status="Good",
-                              start=timestamp.GetCurrentTime(),
-                              end=timestamp.GetCurrentTime()
-        )))
-        for score in scoreSolutionResults:
-            yield score
+        problem = self.controller.problem
+        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
+        metrics_result = self.controller.candidate.data['test_metrics']
+        search_solutions_results = to_proto_search_solution_requests(
+            problem, fitted_pipeline.id, metrics_result)
+
+        for solution in search_solutions_results:
+            yield solution
+
+        # scoreSolutionResults = []
+        # timestamp = Timestamp()
+        # scoreSolutionResults.append(
+        #     GetScoreSolutionResultsResponse(
+        #     progress=Progress(state=core_pb2.COMPLETED,
+        #                       status="Good",
+        #                       start=timestamp.GetCurrentTime(),
+        #                       end=timestamp.GetCurrentTime()),
+        #     scores=[Score(metric=ProblemPerformanceMetric(metric=problem_pb2.ACCURACY,
+        #                                     k = 0,
+        #                                     pos_label="0"),
+        #                   fold=0,
+        #                   targets=[ProblemTarget(target_index=0,
+        #                                    resource_id="0",
+        #                                    column_index=0,
+        #                                    column_name="0",
+        #                                    clusters_number=0)],
+        #                   value=Value(double=0.8))]
+        # ))
+        # scoreSolutionResults.append(GetScoreSolutionResultsResponse(
+        #     progress=Progress(state=core_pb2.PENDING,
+        #                       status="Good",
+        #                       start=timestamp.GetCurrentTime(),
+        #                       end=timestamp.GetCurrentTime()
+        # )))
+        # for score in scoreSolutionResults:
+        #     yield score
 
 
     '''
@@ -601,11 +795,23 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pass
 
 
-    def DescribeSolution(self, request, context):
+    def DescribeSolution(self, request, context) -> DescribeSolutionResponse:
         # pipeline = controller.getFittedPipeline(request.solution_id)
-        pipeline = self.controller.candidate.data['pipeline']
+
+        if self.controller.candidate is None:
+            return DescribeSolutionResponse()
+
+        if self.controller.candidate.data is None:
+            return DescribeSolutionResponse()
+
+        if not 'fitted_pipeline' in self.controller.candidate.data:
+            return DescribeSolutionResponse()
+
+        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
+        pipeline = fitted_pipeline.pipeline
+
         return DescribeSolutionResponse(
-            pipeline=to_proto_pipeline(pipeline),
+            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id),
             steps=to_proto_steps_description(pipeline)
         )
 

@@ -28,6 +28,7 @@ numpy.set_printoptions(threshold=numpy.nan)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 DEFAULT_LIB_DIRECTORY = PARENTDIR + os.sep + "library"
+
 PORT = 45042
 
 def serve():
@@ -38,7 +39,7 @@ def serve():
         default=DEFAULT_LIB_DIRECTORY)
     args = parser.parse_args()
 
-    servicer = TA2Servicer(DEFAULT_LIB_DIRECTORY)
+    servicer = TA2Servicer(args.library)
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
     library = args.library

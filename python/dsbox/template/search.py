@@ -30,14 +30,15 @@ from .configuration_space import SimpleConfigurationSpace
 
 from .pipeline_utilities import pipe2str
 
+USE_MULTIPROCESSING=False
 
 T = typing.TypeVar("T")
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     # get targets
-    targets = problem_doc_metadata.query(())["inputs"][0]["targets"]
-    resID = targets[0]["resource_id"]
-    colIndex = targets[0]["column_index"]
+    targets = problem_doc_metadata.query(())["inputs"]["data"][0]["targets"]
+    resID = targets[0]["resID"]
+    colIndex = targets[0]["colIndex"]
 
     datameta = dataset.metadata
     datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
@@ -121,8 +122,11 @@ class DimensionalSearch(typing.Generic[T]):
         """
 
         # setup the output cache
-        manager = Manager()
-        cache = manager.dict()
+        if USE_MULTIPROCESSING:
+            manager = Manager()
+            cache = manager.dict()
+        else:
+            cache = dict()
 
 
         # we first need the baseline for searching the conf_space. For this
@@ -173,13 +177,14 @@ class DimensionalSearch(typing.Generic[T]):
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
             try:
-                with Pool(self.num_workers) as p:
-                    results = p.map(
-                        self.evaluate,
-                        map(lambda c: (c, cache), new_candidates)
-                    )
-
-                # results = map(self.evaluate,new_candidates)
+                if USE_MULTIPROCESSING:
+                    with Pool(self.num_workers) as p:
+                        results = p.map(
+                            self.evaluate,
+                            map(lambda c: (c, cache), new_candidates)
+                        )
+                else:
+                    results = [self.evaluate(x) for x in [(c, cache) for c in new_candidates]]
 
                 for res, x in zip(results, new_candidates):
                     test_values.append(res['test_metrics'][0]['value'])
@@ -233,7 +238,8 @@ class DimensionalSearch(typing.Generic[T]):
         # END FOR
 
         # shutdown the cache manager
-        manager.shutdown()
+        if USE_MULTIPROCESSING:
+            manager.shutdown()
 
         # here we can get the details of pipelines from "candidate.data"
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"

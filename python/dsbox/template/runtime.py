@@ -299,7 +299,7 @@ class Runtime:
 
 
                         if model is None:
-                            return result
+                            return results
 
                         trainX = X.take(train, axis=0)
                         trainY = y.take(train, axis=0).values.ravel()
@@ -332,7 +332,7 @@ class Runtime:
                             sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive, e))
                             # traceback.print_exc(e)
 
-        if num == 0:
+        if len(validation_metrics)==0:
             return results
 
         average_metrics: typing.Dict[str, dict] = {}
