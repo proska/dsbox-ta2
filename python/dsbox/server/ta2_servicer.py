@@ -441,9 +441,6 @@ def to_proto_pipeline(pipeline : Pipeline, id:str = None) -> PipelineDescription
     if id is None:
         id = pipeline.id,
 
-    import pdb
-    pdb.set_trace()
-
     pipeline_context = pipeline.context.value
     return PipelineDescription(
         id=id,

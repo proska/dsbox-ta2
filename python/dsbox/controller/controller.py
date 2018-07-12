@@ -43,12 +43,13 @@ import pandas as pd
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 
 logging.basicConfig(
-                level=logging.INFO,
-                format=FORMATTER,
-                datefmt='%m-%d %H:%M',
-                filename=os.path.join(TEMP_DIR, 'dsbox.log'),
-                filemode='w'
-            )
+    level=logging.INFO,
+    format=FORMATTER,
+    datefmt='%m-%d %H:%M',
+    handlers=[
+        logging.FileHandler(os.path.join(TEMP_DIR, 'dsbox.log')),
+        logging.StreamHandler()
+    ])
 
 _logger = logging.getLogger(__name__)
 
