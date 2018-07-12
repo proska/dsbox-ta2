@@ -37,10 +37,10 @@ def main(args):
         config = json.load(data)
 
     if 'saving_folder_loc' not in config:
-        # output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-        output_location = "/nfs1/dsbox-repo/" + 'qasemi' + \
-                          "/dsbox-ta2/python/output/" + \
-                          config['dataset_schema'].rsplit("/", 3)[-3]
+        output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
+        # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + \
+        #                   "/dsbox-ta2/python/output/" + \
+        #                   config['dataset_schema'].rsplit("/", 3)[-3]
         config["temp_storage_root"] = output_location + "/temp"
         config["saving_folder_loc"] = output_location
         config["executables_root"] = output_location + "/executables"
@@ -86,6 +86,7 @@ def main(args):
     if args.timeout > -1:
         # Overide config timeout
         timeout = args.timeout
+    timeout = 30
     if timeout > 0:
         signal.signal(signal.SIGINT, write_results_and_exit)
         signal.signal(signal.SIGTERM, write_results_and_exit)

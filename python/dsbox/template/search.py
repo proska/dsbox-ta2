@@ -128,8 +128,7 @@ class DimensionalSearch(typing.Generic[T]):
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        candidate, candidate_value = \
-            self.setup_initial_candidate(candidate_in, cache)
+        candidate, candidate_value = self.setup_initial_candidate(candidate_in, cache)
 
         # generate an executable pipeline with random steps from conf. space.
 
@@ -370,10 +369,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
         print("[INFO] Worker started, id:", current_process())
-        try:
-            evaluation_result = self._evaluate(configuration, cache)
-        except:
-            return None
+        # try:
+        evaluation_result = self._evaluate(configuration, cache)
+        # except:
+        #     print("[ERROR] PIPELINE EVALUATION FAILED")
+        #     return None
         # configuration.data.update(new_data)
         return evaluation_result
 
@@ -383,13 +383,29 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         pipeline = self.template.to_pipeline(configuration)
 
+        # print("*")
+        # print("\n" * 5)
+
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         fitted_pipeline = FittedPipeline(
             pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
+
+        # print("**")
+        # print("\n" * 5)
+
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
+
+        # print("***")
+        # print("\n" * 5)
+
         training_ground_truth = get_target_columns(self.train_dataset,
                                                    self.problem)
+
+        # print("****")
+        # print("\n" * 5)
+
+
         training_prediction = fitted_pipeline.get_fit_step_output(
             self.template.get_output_step_number())
 
@@ -459,7 +475,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         data = {
             'fitted_pipeline': fitted_pipeline,
             'training_metrics': training_metrics,
-            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
+            # 'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
             'test_metrics': test_metrics
         }
 

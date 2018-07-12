@@ -444,28 +444,38 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         "cross_validation": 10,
                         "stratified": True
                     },
-                    "primitives": [{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                        "hyperparameters":
-                            {
-                            'max_depth': [(2),(4),(8)], #(10), #
-                            'n_estimators':[(10),(20),(30)]
-                            }
-                        }, 
+                    "primitives": [
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        # "hyperparameters":
+                        #     {
+                        #     'max_depth': [(2),(4),(8)], #(10), #
+                        #     'n_estimators':[(10),(20),(30)]
+                        #     }
+                        # }, 
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                        # "hyperparameters":
+                        #     {
+                        #     'C': [(1), (10), (100)],  # (10), #
+                        #     }
+                        # },
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                        # "hyperparameters":
+                        #     {
+                        #     'alpha':[(1)],
+                        #     }
+                        # },
                         {
                         "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                            "d3m.primitives.dsbox.SequentialModel",
                         "hyperparameters":
                             {
-                            'C': [(1), (10), (100)],  # (10), #
-                            }
-                        },{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                        "hyperparameters":
-                            {
-                            'alpha':[(1)],
+                            # 'alpha':[(1)],
                             }
                         },
                     ],

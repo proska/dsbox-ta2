@@ -385,9 +385,9 @@ class Controller:
             print('Training {} = {}'.format(
                 candidate.data['training_metrics'][0]['metric'],
                 candidate.data['training_metrics'][0]['value']))
-            print('Training {} = {}'.format(
-                candidate.data['cross_validation_metrics'][0]['metric'],
-                candidate.data['cross_validation_metrics'][0]['value']))
+            # print('Training {} = {}'.format(
+            #     candidate.data['cross_validation_metrics'][0]['metric'],
+            #     candidate.data['cross_validation_metrics'][0]['value']))
             print('Test {} = {}'.format(
                 candidate.data['test_metrics'][0]['metric'],
                 candidate.data['test_metrics'][0]['value']))
@@ -409,14 +409,14 @@ class Controller:
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
 
-            try:
+            # try:
                 # pipeline = FittedPipeline.create(configuration=candidate,
                 #                                  dataset=self.dataset)
-                fitted_pipeline = candidate.data['fitted_pipeline']
-                fitted_pipeline.save(self.output_directory)
-            except:
-                raise NotSupportedError(
-                    '[ERROR] Save Failed!')
+            fitted_pipeline = candidate.data['fitted_pipeline']
+            fitted_pipeline.save(self.output_directory)
+            # except:
+            #     raise NotSupportedError(
+            #         '[ERROR] Save Failed!')
             ####################
             return Status.OK
 

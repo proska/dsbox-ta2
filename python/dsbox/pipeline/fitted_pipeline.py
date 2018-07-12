@@ -14,7 +14,25 @@ from dsbox.template.runtime import Runtime
 
 from .utils import larger_is_better
 
+import keras
+
 TP = typing.TypeVar('TP', bound='FittedPipeline')
+
+# code taken from http://zachmoshe.com/2017/04/03/pickling-keras-models.html
+def __getstate__(self):
+    model_str = ""
+    with tempfile.NamedTemporaryFile(suffix='.hdf5', delete=True) as fd:
+        keras.models.save_model(self, fd.name, overwrite=True)
+        model_str = fd.read()
+    d = { 'model_str': model_str }
+    return d
+
+def __setstate__(self, state):
+    with tempfile.NamedTemporaryFile(suffix='.hdf5', delete=True) as fd:
+        fd.write(state['model_str'])
+        fd.flush()
+        model = keras.models.load_model(fd.name)
+    self.__dict__ = model.__dict__
 
 class FittedPipeline:
     """
@@ -146,6 +164,10 @@ class FittedPipeline:
         json_loc = os.path.join(executable_dir, self.id + '.json')
         with open(json_loc, 'w') as out:
             json.dump({"fitted_pipeline_id": self.id}, out)
+
+        cls = keras.models.Model
+        cls.__getstate__ = self.__getstate__
+        cls.__setstate__ = self.__setstate__
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):

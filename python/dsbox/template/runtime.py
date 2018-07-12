@@ -23,6 +23,8 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
 
+import copy
+
 _logger = logging.getLogger(__name__)
 
 
@@ -135,7 +137,11 @@ class Runtime:
 
         primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
 
+        print(len(self.execution_order))
+
         for i in range(0, len(self.execution_order)):
+            print("step ", i)
+
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
             for argument, value in self.primitives_arguments[n_step].items():
@@ -155,6 +161,14 @@ class Runtime:
                 dataset_hash = hash(str(primitive_arguments))
 
                 prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+
+                
+                print(prim_name)
+                print(type(primitive_arguments))
+                print(primitive_arguments.keys())
+                print(type(primitive_arguments['inputs']))
+                print(primitive_arguments['inputs'].values)
+
 
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
@@ -191,10 +205,24 @@ class Runtime:
                                                  primitive_arguments
                                                  )
 
+                    print(prim_name)
+                    if prim_name == "d3m.primitives.dsbox.CorexText":
+                        print(type(primitives_outputs[n_step]))
+                        print(primitives_outputs[n_step].values)
+                        print(model)
+                        # print(primitives_outputs[n_step])
+
+                    # cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
+
                     # add the entry to cache:
                     # print("[INFO] Updating cache!")
-                    cache[(prim_name, prim_hash)] = (
-                    primitives_outputs[n_step].copy(), model)
+                    # cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
+
+                    print("!!")
+
+                print("\n" * 3)
+
+
         # kyao!!!!
         self.fit_outputs = primitives_outputs
 
