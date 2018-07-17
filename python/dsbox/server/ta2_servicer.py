@@ -26,7 +26,9 @@ import problem_pb2
 import value_pb2
 import pipeline_pb2
 
+from google.protobuf.reflection import GeneratedProtocolMessageType  # type: ignore
 from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
+
 from pprint import pprint
 
 # import autoflowconfig
@@ -238,6 +240,34 @@ def problem_to_json(problem) -> typing.Dict:
 
     return description
 
+def check(message, *, depth=0):
+    pass
+
+    # if depth==0:
+    #     print('====Begin Check')
+    # if message is None:
+    #     raise('None value')
+    # elif type(message) in [list, tuple] or 'RepeatedComposite' in str(type(message)):
+    #     for i, value in enumerate(message):
+    #         print(' ' * (4*depth), 'index=', i)
+    #         check(value, depth=depth+1)
+    # elif isinstance(message,dict) or 'MessageMap' in str(type(message)):
+    #     for key, value in message.items():
+    #         print(' ' * (4*depth), key)
+    #         check(value, depth=depth+1)
+    # elif '_pb2' in str(type(message)):
+    #     print(' ' * (4*depth), message.DESCRIPTOR.full_name)
+    #     for (field_descriptor, field_value) in message.ListFields():
+    #         if field_value is None:
+    #             print(' ' * (4*depth), 'ERROR: check found None value:', field_descriptor.full_name)
+    #         else:
+    #             print(' ' * (4*depth), field_descriptor.full_name)
+    #             check(field_value, depth=depth+1)
+    # else:
+    #     print(' ' * (4*depth), message)
+    # if depth==0:
+    #     print('====End Check')
+
 def to_proto_value_raw(value):
     if value is None:
         return ValueRaw(NulValue=value_pb2.NULL_VALUE)
@@ -263,91 +293,6 @@ def to_proto_value_raw(value):
         return ValueRaw(dict=ValueDict(items=adict))
     else:
         raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
-
-# def to_proto_value(value):
-#     is_list = isinstance(value, collections.Iterable)
-#     if not is_list:
-#         if isinstance(value, int):
-#             return Value(int64=value)
-#         elif isinstance(value, float):
-#             return Value(double=value)
-#         elif isinstance(value, bool):
-#             return Value(bool=value)
-#         elif isinstance(value, str):
-#             return Value(string=value)
-#         elif isinstance(value, bytes):
-#             return Value(bytes=value)
-#         else:
-#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
-
-#     if len(value) == 0:
-#         # what would be an appropriate default for empty list?
-#         return Value(string_list=StringList())
-
-#     sample = value[0]
-#     if isinstance(sample, int):
-#         alist = Int64List()
-#         for x in value:
-#             alist.list.append(x)
-#         proto_value = Value(int64_list=alist)
-#     elif isinstance(sample, float):
-#         alist = DoubleList()
-#         for x in value:
-#             alist.list.append(x)
-#         proto_value = Value(double_list=alist)
-#     elif isinstance(sample, bool):
-#         alist = BoolList()
-#         for x in value:
-#             alist.list.append(x)
-#         proto_value = Value(bool_list=alist)
-#     elif isinstance(sample, str):
-#         alist = StringList()
-#         for x in value:
-#             alist.list.append(x)
-#         proto_value = Value(string_list=alist)
-#     elif isinstance(sample, bytes):
-#         alist = BytesList()
-#         for x in value:
-#             alist.list.append(x)
-#         proto_value = Value(bytes_list=alist)
-#     else:
-#         raise ValueError('to_proto_value: Unknown value list type {}({})'.format(type(sample), sample))
-
-#     return proto_value
-
-# def to_proto_value_with_type(value, typing_instance):
-#     if value is None:
-#         types = list(typing_instance.__args__)
-#         types.remove(type(None))
-#         if int in types:
-#             return Value(int64=value)
-#         elif float in types:
-#             return Value(double=value)
-#         elif bool in types:
-#             return Value(bool=value)
-#         elif str in types:
-#             return Value(string=value)
-#         elif bytes in types:
-#             return Value(bytes=value)
-#         else:
-#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
-#     elif isinstance(value, collections.Iterable) and len(value)==0:
-#         types = list(typing_instance.__args__)
-#         types.remove(type(None))
-#         if int in types:
-#             return Value(int64_list=value)
-#         elif float in types:
-#             return Value(double_list=value)
-#         elif bool in types:
-#             return Value(bool_list=value)
-#         elif str in types:
-#             return Value(string_list=value)
-#         elif bytes in types:
-#             return Value(bytes_list=value)
-#         else:
-#             raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
-#     else:
-#         return to_proto_value(value)
 
 def to_proto_primitive(primitive_base: PrimitiveBase) -> Primitive:
     """
@@ -543,11 +488,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     The __init__ method is used to establish the underlying TA2 libraries to service requests from the TA3 system.
     '''
-    def __init__(self, libdir, output_dir:str = None):
+    def __init__(self, *, directory_mapping = {}, output_dir:str = None):
         self.log_msg("Init invoked")
-        self.libdir = libdir
         self.output_dir = output_dir
-        self.controller = Controller(libdir)
+        self.directory_mapping = directory_mapping
+        self.controller = Controller('/')
 
 
     '''
@@ -557,10 +502,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def Hello(self, request, context):
         self.log_msg(msg="Hello invoked")
         # TODO: Figure out what we should be sending back to TA3 here.
-        return HelloResponse(user_agent="ISI",
-                             version="2.0",
-                             allowed_value_types="",
-                             supported_extensions="")
+        result = HelloResponse(user_agent="ISI",
+                               version=core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version],
+                               allowed_value_types="",
+                               supported_extensions="")
+
+        check(result)
+
+        return result
 
 
     '''
@@ -570,6 +519,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def SearchSolutions(self, request, context):
         self.log_msg(msg="SearchSolutions invoked")
 
+        if not request.version==core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version]:
+            _logger.waring("Protocol Version does NOT match supported version {} != {}".format(
+                core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
+
         problem_json_dict = problem_to_json(request.problem)
         problem_parsed = problem_to_dict(request.problem)
         print('==json')
@@ -577,9 +530,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         print('==parsed')
         pprint(problem_parsed)
 
-
         # Although called uri, it's just a filepath to datasetDoc.json
         dataset_uri = request.inputs[0].dataset_uri
+        dataset_uri = self._map_directories(dataset_uri)
+
 
         config_dict = {
             'problem_json' : problem_json_dict,
@@ -597,6 +551,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         status = self.controller.train()
 
+        result = SearchSolutionsResponse(search_id=self.generateId())
+
+        check(result)
+
         return SearchSolutionsResponse(search_id=self.generateId())
 
 
@@ -613,79 +571,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         search_solutions_results = to_proto_search_solution_requests(
             problem, fitted_pipeline.id, metrics_result)
 
+        check(search_solutions_results)
+
         for solution in search_solutions_results:
             yield solution
 
-        # timestamp = Timestamp()
-
-        # problem = self.controller.problem
-
-        # pprint(self.controller.candidate.data)
-
-        # metrics_result = self.controller.candidate.data['test_metrics']
-        # pipeline = self.controller.candidate.data['fitted_pipeline']
-        # searchSolutionsResults = []
-
-        # # Todo: controller needs to remember the partition method
-        # scoring_config = ScoringConfiguration(
-        #     method=core_pb2.HOLDOUT,
-        #     train_test_ratio=5,
-        #     random_seed=4676,
-        #     stratified=True)
-        # targets = []
-        # problem_dict = problem
-        # for inputs_dict in problem_dict['inputs']:
-        #     for target in inputs_dict['targets']:
-        #         targets.append(ProblemTarget(
-        #             target_index = target['target_index'],
-        #             resource_id = target['resource_id'],
-        #             column_index = target['column_index'],
-        #             column_name = target['column_name'],
-        #             clusters_number = target['clusters_number']))
-        # score_list = []
-        # for metric in metrics_result:
-        #     ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
-        #     if 'k' in metric:
-        #         ppm = metric['k']
-        #     if 'pos_label' in metric:
-        #         ppm = metric['pos_label']
-        #     score_list.append(Score(
-        #         metric=ppm,
-        #         fold=0,
-        #         targets=targets,
-        #         value=Value(raw=to_proto_value_raw(metric['value']))))
-        # scores = []
-        # scores.append(
-        #     SolutionSearchScore(
-        #         scoring_configuration=scoring_config,
-        #         scores=score_list))
-        # searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
-        #     progress=Progress(state=core_pb2.COMPLETED,
-        #     status="Done",
-        #     start=timestamp.GetCurrentTime(),
-        #     end=timestamp.GetCurrentTime()),
-        #     done_ticks=0, # TODO: Figure out how we want to support this
-        #     all_ticks=0, # TODO: Figure out how we want to support this
-        #     solution_id=pipeline.id, # TODO: Populate this with the pipeline id
-        #     internal_score=0,
-        #     # scores=None # Optional so we will not tackle it until needed
-        #     scores=scores
-        # ))
-        # # Add a second result to test streaming responses
-        # # searchSolutionsResults.append(GetSearchSolutionsResultsResponse(
-        # #     progress=Progress(state=core_pb2.RUNNING,
-        # #     status="Done",
-        # #     start=timestamp.GetCurrentTime(),
-        # #     end=timestamp.GetCurrentTime()),
-        # #     done_ticks=0,
-        # #     all_ticks=0,
-        # #     solution_id="JIOEPB343", # TODO: Populate this with the pipeline id
-        # #     internal_score=0,
-        # #     scores=None
-        # # ))
-        # for solution in searchSolutionsResults:
-        #     yield solution
-
+        self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
 
     '''
     Get the Score Solution request_id associated with the supplied solution_id
@@ -694,10 +585,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def ScoreSolution(self, request, context):
         self.log_msg(msg="ScoreSolution invoked with solution_id: " + request.solution_id)
 
-        return ScoreSolutionResponse(
+        result = ScoreSolutionResponse(
             # Generate valid request id 22 characters long for TA3 tracking
             request_id=self.generateId()
         )
+
+        check(result)
+
+        return result
 
 
     '''
@@ -714,36 +609,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         search_solutions_results = to_proto_search_solution_requests(
             problem, fitted_pipeline.id, metrics_result)
 
+        check(search_solutions_results)
+
         for solution in search_solutions_results:
             yield solution
-
-        # scoreSolutionResults = []
-        # timestamp = Timestamp()
-        # scoreSolutionResults.append(
-        #     GetScoreSolutionResultsResponse(
-        #     progress=Progress(state=core_pb2.COMPLETED,
-        #                       status="Good",
-        #                       start=timestamp.GetCurrentTime(),
-        #                       end=timestamp.GetCurrentTime()),
-        #     scores=[Score(metric=ProblemPerformanceMetric(metric=problem_pb2.ACCURACY,
-        #                                     k = 0,
-        #                                     pos_label="0"),
-        #                   fold=0,
-        #                   targets=[ProblemTarget(target_index=0,
-        #                                    resource_id="0",
-        #                                    column_index=0,
-        #                                    column_name="0",
-        #                                    clusters_number=0)],
-        #                   value=Value(double=0.8))]
-        # ))
-        # scoreSolutionResults.append(GetScoreSolutionResultsResponse(
-        #     progress=Progress(state=core_pb2.PENDING,
-        #                       status="Good",
-        #                       start=timestamp.GetCurrentTime(),
-        #                       end=timestamp.GetCurrentTime()
-        # )))
-        # for score in scoreSolutionResults:
-        #     yield score
 
 
     '''
@@ -757,18 +626,22 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def GetProduceSolutionResults(self, request, context):
+        _logger.error("GetProduceSolutionResults not yet implemented")
         pass
 
 
     def SolutionExport(self, request, context):
+        _logger.error("SolutionExport not yet implemented")
         pass
 
 
     def GetFitSolutionResults(self, request, context):
+        _logger.error("GetFitSolutionResults not yet implemented")
         pass
 
 
     def StopSearchSolutions(self, request, context):
+        _logger.error("StopSearchSolutions not yet implemented")
         pass
 
 
@@ -781,14 +654,17 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def ProduceSolution(self, request, context):
+        _logger.error("ProduceSolution not yet implemented")
         pass
 
 
     def FitSolution(self, request, context):
+        _logger.error("FitSolution not yet implemented")
         pass
 
 
     def UpdateProblem(self, request, context):
+        _logger.error("UpdateProblem not yet implemented")
         pass
 
 
@@ -807,10 +683,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
         pipeline = fitted_pipeline.pipeline
 
-        return DescribeSolutionResponse(
+        result = DescribeSolutionResponse(
             pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id),
             steps=to_proto_steps_description(pipeline)
         )
+
+        check(result)
+
+        return result
 
 
     '''
@@ -828,3 +708,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def generateId(self):
         return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
+
+    def _map_directories(self, uri):
+        for host_dir, container_dir in self.directory_mapping.items():
+            if 'file://'+container_dir in uri:
+                _logger.debug('replace uri: %s', uri)
+                uri = uri.replace('file://'+container_dir, 'file://'+host_dir)
+                _logger.debug('  with: %s', uri)
+                return uri
+        return uri

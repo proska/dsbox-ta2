@@ -193,7 +193,7 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-        self.output_directory: str = '/outputs/'
+        self.output_directory: str = '/output/'
         self.output_pipelines_dir: str = ""
         self.output_executables_dir: str = ""
         self.output_supporting_files_dir: str = ""
@@ -253,8 +253,10 @@ class Controller:
         # Dataset
         loader = D3MDatasetLoader()
         self.dataset_schema_file = config['dataset_schema']
-        dataset_uri = config['dataset_schema']
-        if not dataset_uri.startswith('file://'):
+        if self.dataset_schema_file.startswith('file://'):
+            dataset_uri = self.dataset_schema_file
+            self.dataset_schema_file = self.dataset_schema_file[7:]
+        else:
             dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
         self.dataset = loader.load(dataset_uri=dataset_uri)
         self.dataset, self.test_dataset = split_dataset(self.dataset, self.problem)
@@ -439,15 +441,18 @@ class Controller:
             print("******************\n[INFO] Writing results")
             print(candidate.data)
             print(candidate, value)
-            print('Training {} = {}'.format(
-                candidate.data['training_metrics'][0]['metric'],
-                candidate.data['training_metrics'][0]['value']))
-            print('Training {} = {}'.format(
-                candidate.data['cross_validation_metrics'][0]['metric'],
-                candidate.data['cross_validation_metrics'][0]['value']))
-            print('Test {} = {}'.format(
-                candidate.data['test_metrics'][0]['metric'],
-                candidate.data['test_metrics'][0]['value']))
+            if candidate.data['training_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['training_metrics'][0]['metric'],
+                    candidate.data['training_metrics'][0]['value']))
+            if candidate.data['cross_validation_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['cross_validation_metrics'][0]['metric'],
+                    candidate.data['cross_validation_metrics'][0]['value']))
+            if candidate.data['test_metrics']:
+                print('Test {} = {}'.format(
+                    candidate.data['test_metrics'][0]['metric'],
+                    candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -457,11 +462,15 @@ class Controller:
             save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
 
             print("******************\n[INFO] Saving training results in", save_location)
-            f = open(save_location, "w+")
-            f.write(str(metrics) + "\n")
-            f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-            f.close()
+            try:
+                f = open(save_location, "w+")
+                f.write(str(metrics) + "\n")
+                f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                f.close()
+            except:
+                raise NotSupportedError(
+                    '[ERROR] Save training results Failed!')
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline

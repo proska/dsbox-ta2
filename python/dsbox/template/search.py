@@ -136,6 +136,9 @@ class DimensionalSearch(typing.Generic[T]):
         candidate, candidate_value = \
             self.setup_initial_candidate(candidate_in, cache)
 
+        if candidate is None:
+            return (None, None)
+
         # generate an executable pipeline with random steps from conf. space.
 
         # The actual searching process starts here.
@@ -187,8 +190,12 @@ class DimensionalSearch(typing.Generic[T]):
                     results = [self.evaluate(x) for x in [(c, cache) for c in new_candidates]]
 
                 for res, x in zip(results, new_candidates):
+                    if not res:
+                        print('[ERROR] candidate failed:', x)
+                        continue
                     test_values.append(res['test_metrics'][0]['value'])
-                    cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
+                    if res['cross_validation_metrics']:
+                        cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
                     res['fitted_pipeline'] = res['fitted_pipeline']
@@ -211,22 +218,34 @@ class DimensionalSearch(typing.Generic[T]):
 
             # All candidates failed!
             if len(test_values) == 0:
-                print("[ERROR] No Candidate worked!:", test_values)
-                return (None, None)
+                print("[INFO] No new Candidate worked in this step!")
+                if not candidate:
+                    print("[ERROR] The template did not return any valid pipelines!")
+                    return (None, None)
+                else:
+                    continue
 
             # Find best candidate
+            best_cv_index = 0 # initialize best_cv_index
             if self.minimize:
                 best_index = test_values.index(min(test_values))
-                best_cv_index = cross_validation_values.index(min(cross_validation_values))
+                if cross_validation_values:
+                    best_cv_index = cross_validation_values.index(min(cross_validation_values))
             else:
                 best_index = test_values.index(max(test_values))
-                best_cv_index = cross_validation_values.index(max(cross_validation_values))
+                if cross_validation_values:
+                    best_cv_index = cross_validation_values.index(max(cross_validation_values))
             print("[INFO] Best index:", best_index, "___", test_values[best_index])
-            if best_index==best_cv_index:
-                print("[INFO] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
-            else:
-                print("[WARN] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
-                print("[WARN] CV detail values:", ['{:.4f}'.format(x) for x in results[best_cv_index]['cross_validation_metrics'][0]['values']])
+            if cross_validation_values:
+                if best_index == best_cv_index:
+                    print("[INFO] Best CV index:", best_cv_index,
+                          "___", cross_validation_values[best_cv_index])
+                else:
+                    print("[WARN] Best CV index:", best_cv_index,
+                          "___", cross_validation_values[best_cv_index])
+                    print("[WARN] CV detail values:",
+                          ['{:.4f}'.format(x) for x in
+                           results[best_cv_index]['cross_validation_metrics'][0]['values']])
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
@@ -267,16 +286,20 @@ class DimensionalSearch(typing.Generic[T]):
             candidate = ConfigurationPoint(
                 self.configuration_space, self.first_assignment())
         # first, then random, then another random
-        # for i in range(2):
-        #     try:
-        #         result = self.evaluate(candidate)
-        #         return (candidate, result[0])
-        #     except:
-        #         print("Pipeline failed")
-        #         candidate = ConfigurationPoint(self.configuration_space,
-        #                                        self.random_assignment())
-        result = self.evaluate((candidate, cache))
-        candidate.data.update(result)
+        for i in range(2):
+            try:
+                result = self.evaluate((candidate, cache))
+                candidate.data.update(result)
+                return (candidate, result['test_metrics'][0]['value'])
+            except:
+                traceback.print_exc()
+                print("-"*20)
+                print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                candidate = ConfigurationPoint(self.configuration_space,
+                                               self.random_assignment())
+        return (None, None)
+        # result = self.evaluate((candidate, cache))
+        # candidate.data.update(result)
         # try:
         #     result = self.evaluate(candidate)
         # except:
@@ -291,7 +314,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
-        return (candidate, result['test_metrics'][0]['value'])
+        # return (candidate, result['test_metrics'][0]['value'])
 
 
 
@@ -372,7 +395,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
         print("[INFO] Worker started, id:", current_process())
-        evaluation_result = self._evaluate(configuration, cache)
+        try:
+            evaluation_result = self._evaluate(configuration, cache)
+        except:
+            traceback.print_exc()
+            return None
         # configuration.data.update(new_data)
         return evaluation_result
 

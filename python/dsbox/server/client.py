@@ -40,6 +40,9 @@ from problem_pb2 import ProblemTarget
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
+
+DATASET_URI='file:///nfs1/dsbox-repo/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json'
+
 '''
 This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process.
 
@@ -131,7 +134,7 @@ class Client(object):
         reply = stub.SearchSolutions(
             SearchSolutionsRequest(
                 user_agent="Test Client",
-                version="2018.6.2",
+                version="2018.7.7",
                 time_bound=10, # minutes
                 priority=0,
                 allowed_value_types=[value_pb2.RAW],
@@ -159,7 +162,7 @@ class Client(object):
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')]
+            inputs=[Value(dataset_uri=DATASET_URI)]
         ))
         log_msg(reply)
         return reply
@@ -230,7 +233,7 @@ class Client(object):
 
         reply = stub.ScoreSolution(ScoreSolutionRequest(
             solution_id=solution_id,
-            inputs=[ Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')],
+            inputs=[ Value(dataset_uri=DATASET_URI)],
             performance_metrics=[ProblemPerformanceMetric(
                 metric=problem_pb2.ACCURACY
             )],

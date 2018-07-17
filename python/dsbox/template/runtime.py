@@ -326,7 +326,8 @@ class Runtime:
                                 metricDesc = PerformanceMetric.parse(metric_description['metric'])
                                 metric: typing.Callable = metricDesc.get_function()
                                 params: typing.Dict = metric_description['params']
-                                validation_metrics[metric_description['metric']].append(metric(testY, ypred, **params))
+                                m = metric(testY, ypred, **params)
+                                validation_metrics[metric_description['metric']].append(m)
 
                         except Exception as e:
                             sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive, e))
@@ -344,7 +345,7 @@ class Runtime:
             result_by_metric['metric'] = metric_description['metric']
             result_by_metric['value'] = average_metrics[metric_description['metric']]
             result_by_metric['values'] = validation_metrics[metric_description['metric']]
-            result_by_metric['targets'] = targets[metric_description['metric']]
+            # result_by_metric['targets'] = targets[metric_description['metric']]
             results.append(result_by_metric)
 
         for result in results:
