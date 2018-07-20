@@ -5,6 +5,7 @@ from pprint import pprint
 
 if __name__ == "__main__":
 
+	cnt = 0
 
 	for fn in os.listdir("./output/"):
 		if not ".txt" in fn:
@@ -16,8 +17,12 @@ if __name__ == "__main__":
 			with open(pipeline_folder + "/" + pipeline) as f:
 				data = json.load(f)
 
+			cnt = cnt + 1
 			print(data['metric_value'])
-			print(data['steps'][len(data['steps']) - 1]['primitive']['name'])
-			# pprint(data)
+			# print(data['steps'][len(data['steps']) - 1]['primitive']['name'])
+			# pprint(data['steps'][len(data['steps']) - 1]['hyperparams'])
+			# break
 
 		break
+
+	print(cnt)

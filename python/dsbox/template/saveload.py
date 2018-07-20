@@ -55,8 +55,8 @@ class PipelineSave:
             '''
             file_loc = pkl_loc + "_step_" + str(i) + ".pkl"
             # output the pickle file of each step
-            with open(file_loc, "wb") as f:
-                pickle.dump(each_step, f)
+            # with open(file_loc, "wb") as f:
+            #     pickle.dump(each_step, f)
 
 class PipelineLoad:
     def __init__(self, folder_loc: str, pipeline_id: str) -> None:

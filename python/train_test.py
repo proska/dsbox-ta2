@@ -5,7 +5,7 @@ import sys
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
-timeout = 20
+timeout = 30
 cpus = 10
 num_threads = 10
 
@@ -28,7 +28,7 @@ config_dir = home + "/dsbox/runs2/config-ll0/"
 
 for conf in os.listdir(config_dir):
     # command = "python3 ta1-run-single-template --template " + sys.argv[1] + " " + os.path.join(config_dir, conf, 'search_config.json')
-    command = "python ta2-search " + config_dir + conf + " --timeout " + str(timeout) + " --cpus " + str(cpus)
+    command = "python ta2-search " + config_dir + conf + " --timeout " + str(timeout) + " --cpus " + str(cpus) + " --template " + sys.argv[1]
 
     tp.apply_async(call_ta2search, (command,))
 

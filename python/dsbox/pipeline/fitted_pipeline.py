@@ -140,7 +140,7 @@ class FittedPipeline:
         structure['metric_value'] = value
 
         # FIXME: this is here for testing purposes
-        # structure['runtime_stats'] = str(self.auxiliary)
+        structure['runtime_stats'] = str(self.auxiliary)
 
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
@@ -159,8 +159,8 @@ class FittedPipeline:
             each_step = self.runtime.pipeline[i]
             file_loc = os.path.join(supporting_files_dir,
                                     "step_" + str(i) + ".pkl")
-            with open(file_loc, "wb") as f:
-                pickle.dump(each_step, f)
+            # with open(file_loc, "wb") as f:
+            #     pickle.dump(each_step, f)
 
     def __str__(self):
         # desc = list(map(lambda s: (s.primitive, s.hyperparams),

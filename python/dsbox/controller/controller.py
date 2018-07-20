@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import random
+import socket
 import typing
 from multiprocessing import Pool, current_process, Manager
 from math import sqrt, log
@@ -177,7 +178,7 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-        self.output_directory: str = '/output/'
+        self.output_directory: str = '/output_' + socket.gethostname() + '/'
         self.output_pipelines_dir: str = ""
         self.output_executables_dir: str = ""
         self.output_supporting_files_dir: str = ""
@@ -256,7 +257,11 @@ class Controller:
         self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
-        self.output_directory = os.path.split(self.output_pipelines_dir)[0]
+
+        self.output_directory = self.output_pipelines_dir.rsplit("/", 3)[0] + self.output_directory \
+            + self.output_pipelines_dir.rsplit("/", 2)[1]
+
+        # self.output_directory = os.path.split(self.output_pipelines_dir)[0]
 
         if 'logs_root' in config:
             self.output_logs_dir = os.path.abspath(config['logs_root'])
@@ -396,8 +401,9 @@ class Controller:
             # pipeline = FittedPipeline.create(configuration=candidate,
             #                             dataset=self.dataset)
 
-            dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            print(self.output_directory)
+            print("\n" * 5)
+
             save_location = self.output_directory + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
@@ -527,7 +533,7 @@ class Controller:
         # template = self.template[0]
         best_report = None
 
-        for idx in self.select_next_template(max_iter=5):
+        for idx in self.select_next_template(max_iter=1):
             template = self.template[idx]
             print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(
                 idx, template.template['name'], self.uct_score))
