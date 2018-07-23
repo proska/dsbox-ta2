@@ -32,13 +32,14 @@ PORT = 45042
 def serve():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '-v', '--volume', action='append',
-        help="Map config directories, e.g. -v /host/dir/output:/output -v /host/dir/input:/input")
+        '--debug-volume-map', action='append',
+        help="Map config directories, e.g. --debug-volume-map /host/dir/output:/output --debug-volume-map /host/dir/input:/input",
+        default=[])
     args = parser.parse_args()
 
     print(args)
     dir_mapping = {}
-    for entry in args.volume:
+    for entry in args.debug_volume_map:
         host_dir, container_dir = entry.split(':')
         dir_mapping[host_dir] = container_dir
         print('volume: {} to {}'.format(host_dir, container_dir))
