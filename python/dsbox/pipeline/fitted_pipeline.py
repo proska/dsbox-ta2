@@ -121,6 +121,9 @@ class FittedPipeline:
         structure['dataset_id'] = self.dataset_id
 
         # Save pipeline rank
+        rank = -1.0
+        metric = 'None'
+        value = -1
         if self.metric:
             metric: str = self.metric['metric']
             value: float = self.metric['value']
