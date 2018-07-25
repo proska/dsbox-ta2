@@ -21,6 +21,8 @@ from core_pb2 import GetScoreSolutionResultsRequest
 from core_pb2 import SolutionRunUser
 from core_pb2 import EndSearchSolutionsRequest
 from core_pb2 import DescribeSolutionRequest
+from core_pb2 import FitSolutionRequest
+from core_pb2 import GetFitSolutionResultsRequest
 
 from value_pb2 import Value
 from value_pb2 import ValueType
@@ -66,6 +68,7 @@ class Client(object):
         parser = argparse.ArgumentParser(description='Dummy TA3 client')
         parser.add_argument('--basic', action='store_true')
         parser.add_argument('--solution')
+        parser.add_argument('--fit')
         args = parser.parse_args()
 
         if args.basic:
@@ -74,6 +77,9 @@ class Client(object):
         elif args.solution:
             solution_id = args.solution
             self.describeSolution(stub, solution_id)
+        elif args.fit:
+            solution_id = args.fit
+            self.basicFitSolution(stub, solution_id)
 
 
     '''
@@ -115,6 +121,13 @@ class Client(object):
         # 8. Now that we have some results lets can the Search Solutions request
         self.endSearchSolutions(stub, search_id)
 
+
+    def basicFitSolution(self, stub, solution_id):
+        fit_solution_response = self.fitSolution(stub, solution_id)
+
+        get_fit_solution_results_response = self.getFitSolutionResults(stub, fit_solution_response.request_id)
+        for fit_solution_results_response in get_fit_solution_results_response:
+            log_msg(fit_solution_results_response)
 
     '''
     Invoke Hello call
@@ -271,6 +284,25 @@ class Client(object):
         _logger.info("Calling DescribeSolution with solution_id: " + solution_id)
         reply = stub.DescribeSolution(DescribeSolutionRequest(
             solution_id=solution_id
+        ))
+        log_msg(reply)
+        return reply
+
+    def fitSolution(self, stub, solution_id):
+        _logger.info("Calling FitSolution with solution_id: " + solution_id)
+        reply = stub.FitSolution(FitSolutionRequest(
+            solution_id=solution_id,
+            inputs=[Value(dataset_uri=DATASET_URI)],
+            expose_outputs = ['step.7.produce'],
+            expose_value_types = [value_pb2.CSV_URI]
+        ))
+        log_msg(reply)
+        return reply
+
+    def getFitSolutionResults(self, stub, request_id):
+        _logger.info("Calling GetFitSolutionResults with request_id: " + request_id)
+        reply = stub.GetFitSolutionResults(GetFitSolutionResultsRequest(
+            request_id=request_id
         ))
         log_msg(reply)
         return reply

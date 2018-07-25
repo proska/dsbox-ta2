@@ -43,7 +43,7 @@ import pandas as pd
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format=FORMATTER,
     datefmt='%m-%d %H:%M',
     handlers=[

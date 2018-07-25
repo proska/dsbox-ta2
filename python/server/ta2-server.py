@@ -32,19 +32,28 @@ PORT = 45042
 def serve():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        '--output', help='Output directory', default='/output')
+    parser.add_argument(
         '--debug-volume-map', action='append',
         help="Map config directories, e.g. --debug-volume-map /host/dir/output:/output --debug-volume-map /host/dir/input:/input",
         default=[])
+    parser.add_argument(
+        '--load-pipeline', help='Load using fitted pipeline ID')
     args = parser.parse_args()
 
     print(args)
+
     dir_mapping = {}
     for entry in args.debug_volume_map:
         host_dir, container_dir = entry.split(':')
         dir_mapping[host_dir] = container_dir
         print('volume: {} to {}'.format(host_dir, container_dir))
 
-    servicer = TA2Servicer(directory_mapping= dir_mapping)
+    servicer = TA2Servicer(
+        output_dir=args.output,
+        directory_mapping=dir_mapping,
+        fitted_pipeline_id=args.load_pipeline)
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
     core_pb2_grpc.add_CoreServicer_to_server(servicer, server)

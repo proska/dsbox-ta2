@@ -1,7 +1,12 @@
 import collections
+import logging
 import os
+import pickle
+import random
+import string
 import sys
 import typing
+import uuid
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ta3ta2_api = os.path.abspath(os.path.join(
@@ -12,13 +17,12 @@ sys.path.append(ta3ta2_api)
 
 import d3m
 import d3m.metadata.problem as d3m_problem
+import d3m.container as d3m_container
 
+from d3m.container.dataset import D3MDatasetLoader
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep, ArgumentType
 from d3m.primitive_interfaces.base import PrimitiveBase
 
-import logging
-import random
-import string
 
 import core_pb2
 import core_pb2_grpc
@@ -35,6 +39,8 @@ from pprint import pprint
 from core_pb2 import DescribeSolutionResponse
 from core_pb2 import EndSearchSolutionsResponse
 from core_pb2 import EvaluationMethod
+from core_pb2 import FitSolutionResponse
+from core_pb2 import GetFitSolutionResultsResponse
 from core_pb2 import GetScoreSolutionResultsResponse
 from core_pb2 import GetSearchSolutionsResultsResponse
 from core_pb2 import HelloResponse
@@ -48,6 +54,7 @@ from core_pb2 import ScoringConfiguration
 from core_pb2 import SearchSolutionsResponse
 from core_pb2 import SolutionSearchScore
 from core_pb2 import StepDescription
+from core_pb2 import StepProgress
 from core_pb2 import SubpipelineStepDescription
 
 from pipeline_pb2 import PipelineDescription
@@ -76,48 +83,57 @@ from value_pb2 import ValueRaw
 from value_pb2 import ValueList
 from value_pb2 import ValueDict
 
-# from value_pb2 import Value
-# from value_pb2 import ValueError
-# from value_pb2 import DoubleList
-# from value_pb2 import Int64List
-# from value_pb2 import BoolList
-# from value_pb2 import StringList
-# from value_pb2 import BytesList
-
 from dsbox.controller.controller import Controller
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
-# problem.proto and d3m.metadata.problem have different schemes for metrics
-# Mapping needed for v2018.4.18, but not for later versions
-# pb2_to_d3m_metric = {
-#     0 : None,  # METRIC_UNDEFINED
-#     1 : d3m_problem.PerformanceMetric.ACCURACY,
-#     2 : None,  # PRECISION
-#     3 : None,  # RECALL
-#     4 : d3m_problem.PerformanceMetric.F1,
-#     5 : d3m_problem.PerformanceMetric.F1_MICRO,
-#     6 : d3m_problem.PerformanceMetric.F1_MACRO,
-#     7 : d3m_problem.PerformanceMetric.ROC_AUC,
-#     8 : d3m_problem.PerformanceMetric.ROC_AUC_MICRO,
-#     9 : d3m_problem.PerformanceMetric.ROC_AUC_MACRO,
-#     10 : d3m_problem.PerformanceMetric.MEAN_SQUARED_ERROR,
-#     11 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR,
-#     12 : d3m_problem.PerformanceMetric.ROOT_MEAN_SQUARED_ERROR_AVG,
-#     13 : d3m_problem.PerformanceMetric.MEAN_ABSOLUTE_ERROR,
-#     14 : d3m_problem.PerformanceMetric.R_SQUARED,
-#     15 : d3m_problem.PerformanceMetric.NORMALIZED_MUTUAL_INFORMATION,
-#     16 : d3m_problem.PerformanceMetric.JACCARD_SIMILARITY_SCORE,
-#     17 : d3m_problem.PerformanceMetric.PRECISION_AT_TOP_K,
-# #    18 : d3m_problem.PerformanceMetric.OBJECT_DETECTION_AVERAGE_PRECISION
-# }
+communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
 
+file_transfer_directory = "/output/tmp"
+
+def to_csv_file(dataframe, file_prefix: str) -> str:
+    file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
+    dataframe.to_csv(file_path)
+    return file_path
+
+def to_pickle_blob(container) -> bytes:
+    if isinstance(container, d3m_container.DataFrame):
+        return pickle.dumps(d3m_container.pandas.dataframe_serializer(container))
+    elif isinstance(container, d3m_container.ndarry):
+        return pickle.dumps(d3m_container.pandas.ndarray_serializer(container))
+    elif isinstance(container, d3m_container.List):
+        return pickle.dumps(d3m_container.pandas.list_serializer(container))
+    elif isinstance(container, d3m_container.Dataset):
+        return pickle.dumps(d3m_container.pandas.dataset_serializer(container))
+    else:
+        raise('Container type not recognized: {}'.format(type(container)))
+
+def to_pickle_file(container, file_prefix: str) -> str:
+    file_path = os.path.join(file_transfer_directory, file_prefix + '.pkl')
+    with open(file_path, 'rb') as out:
+        if isinstance(container, d3m_container.DataFrame):
+            return pickle.dump(d3m_container.pandas.dataframe_serializer(container), out)
+        elif isinstance(container, d3m_container.ndarry):
+            return pickle.dump(d3m_container.pandas.ndarray_serializer(container), out)
+        elif isinstance(container, d3m_container.List):
+            return pickle.dump(d3m_container.pandas.list_serializer(container), out)
+        elif isinstance(container, d3m_container.Dataset):
+            return pickle.dump(d3m_container.pandas.dataset_serializer(container), out)
+        else:
+            raise('Container type not recognized: {}'.format(type(container)))
+    return file_path
+
+def parse_step_output(step_reference: str) -> dict:
+    # E.g., step_reference=='step.3.produce'
+    parts = step_reference.split('.')
+    if not len(parts) == 3 or not parts[0]=='step':
+        raise('Step reference not supported: ' + step_reference)
+    return {'step': int(parts[1]), 'method': parts[2]}
 
 # The output of this function should be the same as the output for
 # d3m/metadata/problem.py:parse_problem_description
-
 def problem_to_dict(problem) -> typing.Dict:
     performance_metrics = []
     for metrics in problem.problem.performance_metrics:
@@ -441,9 +457,9 @@ def to_proto_search_solution_requests(problem, fitted_pipeline_id, metrics_resul
             scores=score_list))
     search_solutions_results.append(GetSearchSolutionsResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
-        status="Done",
-        start=timestamp.GetCurrentTime(),
-        end=timestamp.GetCurrentTime()),
+                          status="Done",
+                          start=timestamp.GetCurrentTime(),
+                          end=timestamp.GetCurrentTime()),
         done_ticks=0, # TODO: Figure out how we want to support this
         all_ticks=0, # TODO: Figure out how we want to support this
         solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
@@ -488,11 +504,18 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     The __init__ method is used to establish the underlying TA2 libraries to service requests from the TA3 system.
     '''
-    def __init__(self, *, directory_mapping = {}, output_dir:str = None):
+    def __init__(self, *, directory_mapping = {}, fitted_pipeline_id: str = None, output_dir:str = '/output'):
         self.log_msg("Init invoked")
         self.output_dir = output_dir
         self.directory_mapping = directory_mapping
         self.controller = Controller('/')
+
+        # maps fit solution id to fit solution request
+        self.fit_solution = {}
+
+        if fitted_pipeline_id:
+            fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id)
+            self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
 
     '''
@@ -504,7 +527,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # TODO: Figure out what we should be sending back to TA3 here.
         result = HelloResponse(user_agent="ISI",
                                version=core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version],
-                               allowed_value_types="",
+                               allowed_value_types=communication_value_types,
                                supported_extensions="")
 
         check(result)
@@ -533,7 +556,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # Although called uri, it's just a filepath to datasetDoc.json
         dataset_uri = request.inputs[0].dataset_uri
         dataset_uri = self._map_directories(dataset_uri)
-
 
         config_dict = {
             'problem_json' : problem_json_dict,
@@ -625,18 +647,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return EndSearchSolutionsResponse()
 
 
-    def GetProduceSolutionResults(self, request, context):
-        _logger.error("GetProduceSolutionResults not yet implemented")
-        pass
-
-
     def SolutionExport(self, request, context):
         _logger.error("SolutionExport not yet implemented")
-        pass
-
-
-    def GetFitSolutionResults(self, request, context):
-        _logger.error("GetFitSolutionResults not yet implemented")
         pass
 
 
@@ -651,16 +663,78 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
         return ListPrimitivesResponse(primitives = primitives)
 
-
-
     def ProduceSolution(self, request, context):
         _logger.error("ProduceSolution not yet implemented")
         pass
 
+    def GetProduceSolutionResults(self, request, context):
+        _logger.error("GetProduceSolutionResults not yet implemented")
+        pass
 
     def FitSolution(self, request, context):
-        _logger.error("FitSolution not yet implemented")
-        pass
+        self.log_msg(msg="FitSolution invoked with request_id " + request.solution_id)
+        _logger.debug('request.inputs: {}'.format(request.inputs))
+        _logger.debug('request.expose_outputs: {}'.format(request.expose_outputs))
+        _logger.debug('request.expose_value_types: {}'.format(request.expose_value_types))
+        _logger.debug('request.users: {}'.format(request.users))
+
+        request_id = str(uuid.uuid4())
+        self.fit_solution[request_id] = {
+            'request' : request,
+            'start' : Timestamp().GetCurrentTime()
+        }
+        return FitSolutionResponse(request_id=request_id)
+
+    def GetFitSolutionResults(self, request, context):
+        self.log_msg(msg="GetFitSolutionResults invoked with request_id " + request.request_id)
+
+        if not request.request_id in self.fit_solution:
+            raise('Request id not found: ' + request.request_id)
+
+        fit_request = self.fit_solution[request.request_id]['request']
+        start_time = self.fit_solution[request.request_id]['start']
+
+        fitted_pipeline_id = fit_request.solution_id
+
+        # Load dataset
+        loader = D3MDatasetLoader()
+        dataset_uri = fit_request.inputs[0].dataset_uri
+        dataset_uri = self._map_directories(dataset_uri)
+        dataset = loader.load(dataset_uri=dataset_uri)
+
+        fitted_pipeline,_ = FittedPipeline.load(self.output_dir, fitted_pipeline_id)
+        fitted_pipeline.produce(inputs=[dataset])
+
+        timestamp = Timestamp()
+
+        steps_progress = []
+        step_outputs = {}
+        for i, step in enumerate(fitted_pipeline.pipeline.steps):
+            primitive_metadata = step.primitive.metadata.query()
+            primitive_name = primitive_metadata['name']
+            steps_progress.append(
+                StepProgress(
+                    progress=Progress(
+                        state=core_pb2.COMPLETED,
+                        status="Done",
+                        start=start_time,
+                        end=timestamp.GetCurrentTime())))
+
+
+
+        fit_solution_results = []
+        fit_solution_results.append(GetFitSolutionResultsResponse(
+            progress=Progress(state=core_pb2.COMPLETED,
+                              status="Done",
+                              start=start_time,
+                              end=timestamp.GetCurrentTime()),
+            steps=steps_progress,
+            exposed_outputs=step_outputs,
+            fitted_solution_id=fitted_pipeline_id
+        ))
+
+        for result in fit_solution_results:
+            yield result
 
 
     def UpdateProblem(self, request, context):
@@ -709,6 +783,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def generateId(self):
         return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
 
+    '''
+    Map file path. For debugging outside the container environment.
+    '''
     def _map_directories(self, uri):
         for host_dir, container_dir in self.directory_mapping.items():
             if 'file://'+container_dir in uri:
