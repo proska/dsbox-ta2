@@ -255,11 +255,11 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                             "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
                         "hyperparameters":
                             {
-                            # 'bootstrap': [True, False],
+                            'bootstrap': [True, False],
                             'max_depth': [15, 30, None],
-                            # 'min_samples_leaf': [1, 2, 4],
-                            # 'min_samples_split': [2, 5, 10],
-                            # 'max_features': ['auto', 'sqrt'],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
                             'n_estimators': [10, 50, 100]
                             }
                         },
@@ -370,11 +370,11 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                             "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
                         "hyperparameters":
                             {
-                            # 'bootstrap': [True, False],
+                            'bootstrap': [True, False],
                             'max_depth': [15, 30, None],
-                            # 'min_samples_leaf': [1, 2, 4],
-                            # 'min_samples_split': [2, 5, 10],
-                            # 'max_features': ['auto', 'sqrt'],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
                             'n_estimators': [10, 50, 100]
                             }
                         },
@@ -488,9 +488,9 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                             'max_depth': [2,3,5],
                             'n_estimators': [50, 75, 100],
                             'learning_rate': [0.1, 0.3, 0.5],
-                            # 'min_samples_split': [1, 2, 3],
-                            # 'min_samples_leaf': [1, 2],
-                            # 'max_features': [None, 'auto', 'sqrt']
+                            'min_samples_split': [1, 2, 3],
+                            'min_samples_leaf': [1, 2],
+                            'max_features': [None, 'auto', 'sqrt']
                             }
                         },
                     ],
@@ -829,9 +829,9 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                             'max_depth': [2,3,5],
                             'n_estimators': [100, 150, 200],
                             'learning_rate': [0.1, 0.3, 0.5],
-                            # 'min_samples_split': [1, 2, 3],
-                            # 'min_samples_leaf': [1, 2],
-                            # 'max_features': [None, 'auto', 'sqrt']
+                            'min_samples_split': [1, 2, 3],
+                            'min_samples_leaf': [1, 2],
+                            'max_features': [None, 'auto', 'sqrt']
                             }
                         },
                     ],
@@ -943,9 +943,9 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                             {
                             # 'bootstrap': [True, False],
                             'max_depth': [15, 30, None],
-                            # 'min_samples_leaf': [1, 2, 4],
-                            # 'min_samples_split': [2, 5, 10],
-                            # 'max_features': ['auto', 'sqrt'],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
                             'n_estimators': [10, 50, 100]
                             }
                         },
@@ -1057,11 +1057,11 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                             "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
                         "hyperparameters":
                             {
-                            # 'bootstrap': [True, False],
+                            'bootstrap': [True, False],
                             'max_depth': [15, 30, None],
-                            # 'min_samples_leaf': [1, 2, 4],
-                            # 'min_samples_split': [2, 5, 10],
-                            # 'max_features': ['auto', 'sqrt'],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
                             'n_estimators': [10, 50, 100]
                             }
                         },
