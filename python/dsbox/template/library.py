@@ -118,6 +118,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(RandomForestRegressionTemplate)
 
         pass
 
@@ -221,7 +222,7 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                     # # 'threshold':[(0), (500)],
                                     # 'n_grams':[(1), (5)],
                                     # 'max_df':[(.9)],
-                                    # 'min_df':[(.02)],
+                                    # 'min_df':[0.02],
                                 }
                         },
                     ],
@@ -265,11 +266,11 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                             # 'bootstrap': [True, False],
-                            'max_depth': [15, 30, None],
+                            # 'max_depth': [15, 30, None],
                             # 'min_samples_leaf': [1, 2, 4],
                             # 'min_samples_split': [2, 5, 10],
                             # 'max_features': ['auto', 'sqrt'],
-                            'n_estimators': [10, 50, 100]
+                            # 'n_estimators': [10, 50, 100]
                             }
                         },
                     ],
@@ -814,6 +815,9 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.dsbox.CorexText",
                             "hyperparameters":
                                 {
+                                    'min_df': [.2],
+                                    'max_df': [.6],
+                                    'n_grams': [1]
                                 }
                         },
                     ],
@@ -856,12 +860,12 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                             "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
                         "hyperparameters":
                             {
-                            'bootstrap': [True, False],
-                            'max_depth': [15, 30, None],
-                            'min_samples_leaf': [1, 2, 4],
-                            'min_samples_split': [2, 5, 10],
-                            'max_features': ['auto', 'sqrt'],
-                            'n_estimators': [10, 50, 100]
+                            # 'bootstrap': [True, False],
+                            # 'max_depth': [15, 30, None],
+                            # 'min_samples_leaf': [1, 2, 4],
+                            # 'min_samples_split': [2, 5, 10],
+                            # 'max_features': ['auto', 'sqrt'],
+                            # 'n_estimators': [10, 50, 100]
                             }
                         },
                     ],
