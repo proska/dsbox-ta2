@@ -110,7 +110,7 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
-    	for template in self.all_templates.values()
+    	for template in self.all_templates.values():
     		self.templates.append(template)
 
     def _load_single_inline_templates(self, template_name):
@@ -1074,3 +1074,25 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
+class SRIMeanBaselineTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Mean_Baseline_Template",
+            "taskType": "NONE",
+            "taskSubtype": "NONE",
+            "inputType": "NONE",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.baseline.MeanBaseline"],
+                    "inputs": ["template_input"]
+
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 10    
