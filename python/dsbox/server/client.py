@@ -306,7 +306,8 @@ class Client(object):
         reply = stub.FitSolution(FitSolutionRequest(
             solution_id=solution_id,
             inputs=[Value(dataset_uri=DATASET_URI)],
-            expose_outputs = ['step.7.produce'],
+            # expose_outputs = ['steps.7.produce'],
+            expose_outputs = ['outputs.0'],
             expose_value_types = [value_pb2.CSV_URI]
         ))
         log_msg(reply)
@@ -325,7 +326,8 @@ class Client(object):
         reply = stub.ProduceSolution(ProduceSolutionRequest(
             fitted_solution_id=solution_id,
             inputs=[Value(dataset_uri=DATASET_URI)],
-            expose_outputs = ['step.7.produce'],
+            # expose_outputs = ['steps.7.produce'],
+            expose_outputs = ['outputs.0'],
             expose_value_types = [value_pb2.CSV_URI]
         ))
         log_msg(reply)

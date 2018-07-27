@@ -125,12 +125,16 @@ def to_pickle_file(container, file_transfer_directory, file_prefix: str) -> str:
             raise('Container type not recognized: {}'.format(type(container)))
     return file_path
 
-def parse_step_output(step_reference: str) -> dict:
-    # E.g., step_reference=='step.3.produce'
-    parts = step_reference.split('.')
-    if not len(parts) == 3 or not parts[0]=='step':
-        raise Exception('Step reference not supported: ' + step_reference)
-    return {'step': int(parts[1]), 'method': parts[2]}
+def parse_step_output(output_reference: str) -> dict:
+    # E.g., output_reference=='steps.3.produce' or output_reference=='outputs.0'
+    parts = output_reference.split('.')
+    if len(parts) == 2 and parts[0] == 'outputs':
+        return {'outputs' : int(parts[1])}
+    elif len(parts) ==3 and parts[0] in ['step', 'steps']:
+        return {'steps': int(parts[1]), 'method': parts[2]}
+    else:
+        raise Exception('Pipeline output reference not supported: ' + output_reference)
+
 
 # The output of this function should be the same as the output for
 # d3m/metadata/problem.py:parse_problem_description
@@ -716,7 +720,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         step_outputs = {}
         for expose_output in produce_request.expose_outputs:
             parsed_output = parse_step_output(expose_output)
-            dataframe = fitted_pipeline.get_produce_step_output(parsed_output['step'])
+            if 'outputs' in parsed_output:
+                parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
+            dataframe = fitted_pipeline.get_produce_step_output(parsed_output['steps'])
+
             filepath = to_csv_file(dataframe, self.file_transfer_directory, "produce_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
@@ -786,7 +793,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         step_outputs = {}
         for expose_output in fit_request.expose_outputs:
             parsed_output = parse_step_output(expose_output)
-            dataframe = fitted_pipeline.get_fit_step_output(parsed_output['step'])
+            if 'outputs' in parsed_output:
+                parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
+            dataframe = fitted_pipeline.get_fit_step_output(parsed_output['steps'])
             filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
