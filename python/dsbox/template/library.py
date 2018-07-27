@@ -435,18 +435,12 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": True
-                    },
+                    # "runtime": {
+                    #     "cross_validation": 10,
+                    #     "stratified": True
+                    # },
                     "primitives": [{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKSVC",
-                        "hyperparameters":
-                            {
-                            'C': [(1),(10),(100)], #(10), #
-                            'kernel':[('rbf'),('poly'),('sigmoid')]
-                            }
+                        "primitive": "d3m.primitives.sklearn_wrap.SKRandomForestClassifier"
                         }],
                     "inputs": ["impute_step", "extract_target_step"]
                 }
