@@ -8,6 +8,9 @@ import sys
 import typing
 import uuid
 
+import pandas as pd
+import numpy as np
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ta3ta2_api = os.path.abspath(os.path.join(
     CURRENT_DIR, '..', '..', '..', '..', 'ta3ta2-api'))
@@ -16,6 +19,7 @@ sys.path.append(ta3ta2_api)
 
 
 import d3m
+import d3m.metadata.base as mbase
 import d3m.metadata.problem as d3m_problem
 import d3m.container as d3m_container
 
@@ -92,6 +96,32 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
+
+def find_entry_id(dataset):
+    entry_id = '0'
+    for resource_id in dataset.keys():
+        if "https://metadata.datadrivendiscovery.org/types/DatasetEntryPoint" in dataset.metadata.query((resource_id,))['semantic_types']:
+            entry_id = resource_id
+            break
+    return entry_id
+
+def find_target_column_name(dataset, entry_id):
+    target_idx = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length'] - 1
+    for col_idx in range(dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length']):
+        if ("https://metadata.datadrivendiscovery.org/types/SuggestedTarget" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))
+            or "https://metadata.datadrivendiscovery.org/types/Target" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))
+            or "https://metadata.datadrivendiscovery.org/types/TrueTarget" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))):
+            target_idx = col_idx
+            break
+    return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name']
+
+def find_index_column_name_index(dataset, entry_id):
+    target_idx = 0
+    for col_idx in range(dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length']):
+        if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx)):
+            target_idx = col_idx
+            break
+    return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name'], target_idx
 
 def to_csv_file(dataframe, file_transfer_directory, file_prefix: str) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
@@ -724,6 +754,15 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
             dataframe = fitted_pipeline.get_produce_step_output(parsed_output['steps'])
 
+            if 'outputs' in expose_output:
+                entry_id = find_entry_id(dataset)
+                target_column_name = find_target_column_name(dataset, entry_id)
+                index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
+                dataframe.columns = [target_column_name]
+                dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                dataframe.columns = [index_column_name, target_column_name]
+                dataframe = dataframe.set_index(index_column_name)
+
             filepath = to_csv_file(dataframe, self.file_transfer_directory, "produce_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
@@ -796,6 +835,16 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             if 'outputs' in parsed_output:
                 parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
             dataframe = fitted_pipeline.get_fit_step_output(parsed_output['steps'])
+
+            if 'outputs' in expose_output:
+                entry_id = find_entry_id(dataset)
+                target_column_name = find_target_column_name(dataset, entry_id)
+                index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
+                dataframe.columns = [target_column_name]
+                dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                dataframe.columns = [index_column_name, target_column_name]
+                dataframe = dataframe.set_index(index_column_name)
+
             filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
