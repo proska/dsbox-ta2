@@ -82,6 +82,7 @@ class TemplateLibrary:
             "TA1_classification_template_1": TA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
+            "MuxinTA1ClassificationTemplate3": MuxinTA1ClassificationTemplate3,
             "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
