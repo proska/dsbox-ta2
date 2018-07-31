@@ -2012,7 +2012,7 @@ class TA1Classification_3(DSBoxTemplate):
                         "d3m.primitives.dsbox.CleaningFeaturizer",
                         "d3m.primitives.dsbox.DoNothing",
                     ],
-                    "inputs": ["profiler_step"]
+                    "inputs": ["profile_step"]
                 },
                 {
                     "name": "impute_step",
