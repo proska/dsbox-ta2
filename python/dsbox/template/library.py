@@ -82,6 +82,7 @@ class TemplateLibrary:
             "TA1_classification_template_1": TA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
+            "MuxinTA1ClassificationTemplate3": MuxinTA1ClassificationTemplate3,
             "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
@@ -1109,7 +1110,7 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_image_processing_regression_template",
+            "name": "TA1_Default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
@@ -1159,8 +1160,8 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "feature_extraction",
-                    # "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
-                    "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
+                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    # "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
