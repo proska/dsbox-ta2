@@ -450,12 +450,12 @@ def dsbox_generic_text_steps():
             "primitives": [
                 {
                     "primitive": "d3m.primitives.dsbox.CorexText",
-                    "hyperparameters":
-                        {
-                            'n_hidden': [5, 10],
-                            'threshold': [0, 500],
-                            'n_grams': [1, 3],
-                        }
+                    # "hyperparameters":
+                    #     {
+                    #         'n_hidden': [5, 10],
+                    #         'threshold': [0, 500],
+                    #         'n_grams': [1, 3],
+                    #     }
                 },
             ],
             "inputs": ["clean_step"]
@@ -539,30 +539,30 @@ def dimensionality_reduction(feature_name: str = "impute_step",
                     },
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                        "hyperparameters":
-                            {'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                        # "hyperparameters":
+                        #     {'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
                     },
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
-                        "hyperparameters":
-                            {
-                                'n_components': [(2), (4), (8), (16), (32), (64), (128)],
-                                'kernel': [('rbf'), ('sigmoid'), ('cosine')]
-                            }
+                        # "hyperparameters":
+                        #     {
+                        #         'n_components': [(2), (4), (8), (16), (32), (64), (128)],
+                        #         'kernel': [('rbf'), ('sigmoid'), ('cosine')]
+                        #     }
                     },
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
-                        "hyperparameters":
-                            {
-                                'n_components': [(2), (4), (8), (16), (32), (64), (128)],
-                                'kernel': [('poly')],
-                                'degree': [(2), (3), (4)],
-                            }
+                        # "hyperparameters":
+                        #     {
+                        #         'n_components': [(2), (4), (8), (16), (32), (64), (128)],
+                        #         'kernel': [('poly')],
+                        #         'degree': [(2), (3), (4)],
+                        #     }
                     },
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKVarianceThreshold",
-                        "hyperparameters":
-                            {'threshold': [(0.01), (0.01), (0.05), (0.1)], }
+                        # "hyperparameters":
+                        #     {'threshold': [(0.01), (0.01), (0.05), (0.1)], }
                     },
                 ],
                 "inputs": [feature_name]
@@ -583,26 +583,26 @@ def classifier_model(feature_name: str = "impute_step",
                 "primitives": [{
                     "primitive":
                         "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                    "hyperparameters":
-                        {
-                            'max_depth': [(2), (4), (8)],  # (10), #
-                            'n_estimators': [(2), (5), (10), (20), (30), (40)]
-                        }
+                    # "hyperparameters":
+                    #     {
+                    #         'max_depth': [(2), (4), (8)],  # (10), #
+                    #         'n_estimators': [(2), (5), (10), (20), (30), (40)]
+                    #     }
                 },
                     {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        "hyperparameters":
-                            {
-                                'C': [(1), (10), (100)],  # (10), #
-                            }
+                        # "hyperparameters":
+                        #     {
+                        #         'C': [(1), (10), (100)],  # (10), #
+                        #     }
                     }, {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                        "hyperparameters":
-                            {
-                                'alpha': [(1)],
-                            }
+                        # "hyperparameters":
+                        #     {
+                        #         'alpha': [(1)],
+                        #     }
                     },
                 ],
                 "inputs": [feature_name, target_name]
@@ -720,14 +720,14 @@ def dsbox_encoding(clean_name: str = "clean_step",
                 "primitives": [
                     {
                         "primitive": "d3m.primitives.dsbox.CorexText",
-                        "hyperparameters":
-                            {
-                                'n_hidden': [(10)],
-                                'threshold': [(0), (500)],
-                                'n_grams': [(1), (5)],
-                                'max_df': [(.9)],
-                                'min_df': [(.02)],
-                            }
+                        # "hyperparameters":
+                        #     {
+                        #         'n_hidden': [(10)],
+                        #         'threshold': [(0), (500)],
+                        #         'n_grams': [(1), (5)],
+                        #         'max_df': [(.9)],
+                        #         'min_df': [(.02)],
+                        #     }
                     },
                     {"primitive": "d3m.primitives.dsbox.DoNothing", },
                 ],
@@ -1298,22 +1298,22 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 5],
-                                    'n_estimators': [50, 100],
-                                    'learning_rate': [0.1, 0.3],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 5],
+                            #         'n_estimators': [50, 100],
+                            #         'learning_rate': [0.1, 0.3],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
-                                    'alpha': [0, .5, 1],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'alpha': [0, .5, 1],
+                            #     }
                         },
                         {
                             "primitive":
@@ -1356,14 +1356,14 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 5],
-                                    'n_estimators': [100, 200],
-                                    'learning_rate': [0.1, 0.3],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 5],
+                            #         'n_estimators': [100, 200],
+                            #         'learning_rate': [0.1, 0.3],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                         {
                             "primitive":
@@ -1469,11 +1469,11 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [(2), (4)],  # (10), #
-                                    'n_estimators': [(10), (30)]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [(2), (4)],  # (10), #
+                            #         'n_estimators': [(10), (30)]
+                            #     }
                         },
                         # {
                         #     "primitive":
@@ -2632,9 +2632,9 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.cmu.fastlvm.GMM",
-                            "hyperparameters": {
-                                "k": [(4), (6), (8), (10), (12)]
-                            }
+                            # "hyperparameters": {
+                            #     "k": [(4), (6), (8), (10), (12)]
+                            # }
                         }
                     ],
                     "inputs": ["extract_attribute_step"]
@@ -2741,40 +2741,40 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100],
+                            #     }
                         },
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100],
+                            #     }
                         },
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 3, 4, 5],
-                                    'n_estimators': [50, 60, 80, 100],
-                                    'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 3, 4, 5],
+                            #         'n_estimators': [50, 60, 80, 100],
+                            #         'learning_rate': [0.1, 0.2, 0.4, 0.5],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -2811,15 +2811,15 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -2856,15 +2856,15 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -2901,14 +2901,14 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 3, 5],
-                                    'n_estimators': [50, 75, 100],
-                                    'learning_rate': [0.1, 0.3, 0.5],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 3, 5],
+                            #         'n_estimators': [50, 75, 100],
+                            #         'learning_rate': [0.1, 0.3, 0.5],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -2945,12 +2945,12 @@ class SVCClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKSVC",
-                            "hyperparameters":
-                                {
-                                    'C': [0.8, 1.0, 1.2],
-                                    'kernel': ['rbf', 'poly'],
-                                    'degree': [2, 3, 4],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'C': [0.8, 1.0, 1.2],
+                            #         'kernel': ['rbf', 'poly'],
+                            #         'degree': [2, 3, 4],
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -2990,40 +2990,40 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 3, 4, 5],
-                                    'n_estimators': [100, 130, 165, 200],
-                                    'learning_rate': [0.1, 0.23, 0.34, 0.5],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 3, 4, 5],
+                            #         'n_estimators': [100, 130, 165, 200],
+                            #         'learning_rate': [0.1, 0.23, 0.34, 0.5],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKExtraTreesRegressor",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -3060,12 +3060,12 @@ class SVRRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKSVR",
-                            "hyperparameters":
-                                {
-                                    'C': [0.8, 1.0, 1.2],
-                                    'kernel': ['rbf', 'poly'],
-                                    'degree': [2, 3, 4, 5],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'C': [0.8, 1.0, 1.2],
+                            #         'kernel': ['rbf', 'poly'],
+                            #         'degree': [2, 3, 4, 5],
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -3101,14 +3101,14 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 3, 5],
-                                    'n_estimators': [100, 150, 200],
-                                    'learning_rate': [0.1, 0.3, 0.5],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'max_depth': [2, 3, 5],
+                            #         'n_estimators': [100, 150, 200],
+                            #         'learning_rate': [0.1, 0.3, 0.5],
+                            #         'min_samples_split': [2, 3],
+                            #         'min_samples_leaf': [1, 2],
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -3144,15 +3144,15 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKExtraTreesRegressor",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -3188,15 +3188,15 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'bootstrap': [True, False],
+                            #         'max_depth': [15, 30, None],
+                            #         'min_samples_leaf': [1, 2, 4],
+                            #         'min_samples_split': [2, 5, 10],
+                            #         'max_features': ['auto', 'sqrt'],
+                            #         'n_estimators': [10, 50, 100]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
@@ -3234,10 +3234,10 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKBernoulliNB",
-                            "hyperparameters":
-                                {
-                                    'alpha': [0, .5, 1],
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'alpha': [0, .5, 1],
+                            #     }
                         },
                         {
                             "primitive":
@@ -3249,10 +3249,10 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
-                                    'alpha': [0, .5, 1]
-                                }
+                            # "hyperparameters":
+                            #     {
+                            #         'alpha': [0, .5, 1]
+                            #     }
                         },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
