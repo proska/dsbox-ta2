@@ -2021,14 +2021,14 @@ class TA1Classification_3(DSBoxTemplate):
                     "inputs": ["clean_step"]
                 },
                 {
-                    "name": "label_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
                     "inputs": ["impute_step"]
                 },
                 {
                     "name": "corex_step",
                     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                    "inputs": ["label_step"]
+                    "inputs": ["encoder_step"]
                 },
                 # {
                 #     "name": "corex_step",
