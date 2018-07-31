@@ -64,10 +64,10 @@ def main(args):
         fitted_pipeline_id = json.load(open(os.path.join(test_controller.output_executables_dir, pipeline_f), "r"))[
             "id"]
         pipeline_obj = json.load(open(os.path.join(controller.output_pipelines_dir, fitted_pipeline_id + ".json"), "r"))
-        rank_lst.append((pipeline_obj["pipeline_rank"], pipeline_obj["id"]))
+        # rank_lst.append((pipeline_obj["pipeline_rank"], pipeline_obj["id"]))
 
-    fitted_pipeline_id = min(rank_lst)[1]
-    status = test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
+        fitted_pipeline_id = pipeline_obj["id"]
+        status = test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
 
     return status.value
 
