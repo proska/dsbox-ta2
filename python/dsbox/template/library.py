@@ -1160,8 +1160,8 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "feature_extraction",
-                    # "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
-                    "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
+                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    # "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
