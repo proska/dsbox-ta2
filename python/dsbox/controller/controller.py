@@ -516,8 +516,8 @@ class Controller:
 
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
-        # for i in range(max_iter):
-        while True:
+        for i in range(max_iter):
+        # while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
@@ -654,7 +654,7 @@ class Controller:
         best_metric_value = None
         best_report = None
 
-        for idx in self.select_next_template(max_iter=5):
+        for idx in self.select_next_template(max_iter=1):
             template = self.template[idx]
             self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
 
