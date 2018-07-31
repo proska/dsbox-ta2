@@ -1261,12 +1261,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     },
                     "primitives": [{
                         "primitive":
-                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                        "hyperparameters":
-                            {
-                                'max_depth': [(2), (4), (8)],  # (10), #
-                                'n_estimators': [(10), (20), (30)]
-                            }
+                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier"
                     },
                     ],
                     "inputs": ["cast_1_step", "extract_target_step"]
