@@ -121,7 +121,8 @@ class FittedPipeline:
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
-        structure['fitted_pipeline_id'] = self.id
+        structure["parent_id"] = self.pipeline.id
+        structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
 
         # Save pipeline rank
@@ -150,7 +151,7 @@ class FittedPipeline:
         # save the pipeline spec under executables to be a json file simply specifies the pipeline id.
         json_loc = os.path.join(executable_dir, self.id + '.json')
         with open(json_loc, 'w') as out:
-            json.dump({"fitted_pipeline_id": self.id}, out)
+            json.dump({"id": self.id}, out)
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):
@@ -182,7 +183,7 @@ class FittedPipeline:
         pipeline_spec_loc = os.path.join(executable_dir, pipeline_id + '.json')
 
         with open(pipeline_spec_loc, 'r') as f:
-            fitted_pipeline_id = json.load(f).get('fitted_pipeline_id')
+            fitted_pipeline_id = json.load(f).get('id')
 
         pipeline_definition_loc = os.path.join(pipeline_dir,
                                                fitted_pipeline_id + '.json')
@@ -192,6 +193,7 @@ class FittedPipeline:
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
+        structure["id"] = structure["parent_id"]
         dataset_id = structure.get('dataset_id')
 
         pipeline_to_load = Pipeline.from_json_structure(structure)
