@@ -47,8 +47,6 @@ def main(args):
 
     status = controller.train()
     print("*+" * 10)
-    status = controller.test()
-    print("[INFO] Testing Done")
     time_used = time.clock() - start_time
     print("[INFO] The time used for running program is", time_used, "seconds.")
 
