@@ -431,7 +431,7 @@ class DSBoxTemplate():
                     print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
                     print("binding: ")
                     pprint(binding)
-                    return 1
+                    raise exceptions.InvalidArgumentValueError("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
 
                 # get information of the producer of the input
                 out_primitive_value = \
