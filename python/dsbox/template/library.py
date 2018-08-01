@@ -302,8 +302,7 @@ def dsbox_fast_steps():
                 "hyperparameters":
                     {
                         'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Target',
-                            'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'https://metadata.datadrivendiscovery.org/types/Target',),
                         'use_columns': (),
                         'exclude_columns': ()
                     }
@@ -398,8 +397,7 @@ def dsbox_generic_steps():
                 "hyperparameters":
                     {
                         'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Target',
-                            'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'https://metadata.datadrivendiscovery.org/types/Target',),
                         'use_columns': (),
                         'exclude_columns': ()
                     }
@@ -492,8 +490,7 @@ def dsbox_generic_text_steps():
                 "hyperparameters":
                     {
                         'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Target',
-                            'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'https://metadata.datadrivendiscovery.org/types/Target',),
                         'use_columns': (),
                         'exclude_columns': ()
                     }
@@ -649,8 +646,7 @@ def default_dataparser(attribute_name: str = "extract_attribute_step",
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                'https://metadata.datadrivendiscovery.org/types/Target',
-                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'https://metadata.datadrivendiscovery.org/types/Target',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -905,8 +901,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -975,8 +970,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1067,8 +1061,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1143,8 +1136,7 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1228,8 +1220,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1431,8 +1422,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1556,8 +1546,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1655,8 +1644,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1749,8 +1737,7 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1836,8 +1823,7 @@ class UU3TestTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1998,8 +1984,7 @@ class TA1Classification_3(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -2087,8 +2072,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -2341,8 +2325,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Target',
-                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'https://metadata.datadrivendiscovery.org/types/Target',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -2486,8 +2469,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
                 #         "hyperparameters":
                 #             {
                 #                 'semantic_types': (
-                #                 'https://metadata.datadrivendiscovery.org/types/Target',
-                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                #                 'https://metadata.datadrivendiscovery.org/types/Target',),
                 #                 'use_columns': (),
                 #                 'exclude_columns': ()
                 #             }
