@@ -92,8 +92,8 @@ from value_pb2 import ValueDict
 from dsbox.controller.controller import Controller
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
-#logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
@@ -505,6 +505,49 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
 
     return result
 
+def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+
+    # search_solutions_results = []
+
+    timestamp = Timestamp()
+
+    # Todo: controller needs to remember the partition method
+    scoring_config = ScoringConfiguration(
+        method=core_pb2.HOLDOUT,
+        train_test_ratio=5,
+        random_seed=4676,
+        stratified=True)
+    targets = []
+    problem_dict = problem
+    for inputs_dict in problem_dict['inputs']:
+        for target in inputs_dict['targets']:
+            targets.append(ProblemTarget(
+                target_index = target['target_index'],
+                resource_id = target['resource_id'],
+                column_index = target['column_index'],
+                column_name = target['column_name'],
+                clusters_number = target['clusters_number']))
+    score_list = []
+    for metric in metrics_result:
+        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        if 'k' in metric:
+            ppm = metric['k']
+        if 'pos_label' in metric:
+            ppm = metric['pos_label']
+        score_list.append(Score(
+            metric=ppm,
+            fold=0,
+            targets=targets,
+            value=Value(raw=to_proto_value_raw(metric['value']))))
+    result = GetScoreSolutionResultsResponse(
+        progress=Progress(state=core_pb2.COMPLETED,
+                          status="Done",
+                          start=timestamp.GetCurrentTime(),
+                          end=timestamp.GetCurrentTime()),
+        scores=score_list
+    )
+
+    return result
 
 def to_proto_steps_description(pipeline : Pipeline) -> typing.List[StepDescription]:
     '''
@@ -596,7 +639,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.log_msg(msg="SearchSolutions invoked")
 
         if not request.version==core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version]:
-            _logger.waring("Protocol Version does NOT match supported version {} != {}".format(
+            _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
 
         problem_json_dict = problem_to_json(request.problem)
@@ -655,6 +698,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             status = self.controller.train()
 
             self.search_solution_results[request.search_id] = self.controller.candidates
+            _logger.info('    Found {} solutions.'.format(len(self.controller.candidates)))
 
             search_solutions_results = []
             problem = self.controller.problem
@@ -722,13 +766,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                     fitted_pipeline_id = solution['id']
                     metrics_result = solution['test_metrics']
                     if metrics_result is not None:
-                        search_solutions_results.append(to_proto_search_solution_request(
+                        search_solutions_results.append(to_proto_score_solution_request(
                             problem, fitted_pipeline_id, metrics_result))
 
         check(search_solutions_results)
 
         self.log_msg('    Returning {} results'.format(len(search_solutions_results)))
         for solution in search_solutions_results:
+            self.log_msg(msg=solution)
             yield solution
 
 

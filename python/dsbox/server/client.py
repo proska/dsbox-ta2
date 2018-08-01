@@ -124,6 +124,7 @@ class Client(object):
             # scoreSolutionResults shows as empty, hmmm
             for scoreSolutionResultsResponse in scoreSolutionResults:
                 _logger.info("State of solution for run %s is %s" % (str(i), str(scoreSolutionResultsResponse.progress.state)))
+                log_msg(scoreSolutionResultsResponse)
                 i += 1
 
         # 8. Now that we have some results lets can the Search Solutions request
@@ -157,6 +158,45 @@ class Client(object):
     Invoke Search Solutions
     Non streaming call
     '''
+    # def searchSolutions(self, stub):
+    #     _logger.info("Calling Search Solutions:")
+    #     reply = stub.SearchSolutions(
+    #         SearchSolutionsRequest(
+    #             user_agent="Test Client",
+    #             version="2018.7.7",
+    #             time_bound=10, # minutes
+    #             priority=0,
+    #             allowed_value_types=[value_pb2.RAW],
+    #             problem=ProblemDescription(problem=Problem(
+    #                 id="38_sick",
+    #                 version="3.1.2",
+    #                 name="38_sick",
+    #                 description="Sick",
+    #                 task_type=problem_pb2.CLASSIFICATION,
+    #                 task_subtype=problem_pb2.BINARY,
+    #                 performance_metrics=[
+    #                     ProblemPerformanceMetric(
+    #                         metric=problem_pb2.F1_MACRO
+    #                     )]
+    #                 ),
+    #                 inputs=[ProblemInput(
+    #                     dataset_id="38_sick",
+    #                     targets=[
+    #                         ProblemTarget(
+    #                             target_index=30,
+    #                             resource_id="0",
+    #                             column_index=30,
+    #                             column_name="Class"
+    #                         )
+    #                     ])]
+    #             ),
+    #         template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
+    #         inputs=[Value(dataset_uri=DATASET_URI)]
+    #     ))
+    #     log_msg(reply)
+    #     return reply
+
+
     def searchSolutions(self, stub):
         _logger.info("Calling Search Solutions:")
         reply = stub.SearchSolutions(
@@ -167,71 +207,68 @@ class Client(object):
                 priority=0,
                 allowed_value_types=[value_pb2.RAW],
                 problem=ProblemDescription(problem=Problem(
-                    id="38_sick",
+                    id="185_baseball",
                     version="3.1.2",
-                    name="38_sick",
-                    description="Sick",
+                    name="185_baseball",
+                    description="Baseball dataset",
                     task_type=problem_pb2.CLASSIFICATION,
-                    task_subtype=problem_pb2.BINARY,
+                    task_subtype=problem_pb2.MULTICLASS,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=problem_pb2.F1_MACRO
+                            metric=problem_pb2.F1_MACRO,
                         )]
                     ),
                     inputs=[ProblemInput(
-                        dataset_id="38_sick",
+                        dataset_id="185_bl_dataset_TRAIN", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
                         targets=[
                             ProblemTarget(
-                                target_index=30,
+                                target_index=0,
                                 resource_id="0",
-                                column_index=30,
-                                column_name="Class"
+                                column_index=18,
+                                column_name="Hall_of_Fame"
                             )
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri=DATASET_URI)]
+            inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json')]
         ))
         log_msg(reply)
         return reply
-
 
     # def searchSolutions(self, stub):
     #     _logger.info("Calling Search Solutions:")
     #     reply = stub.SearchSolutions(
     #         SearchSolutionsRequest(
-    #             user_agent="SRI Test Client",
-    #             version="2018.6.2",
+    #             user_agent="Test Client",
+    #             version="2018.7.7",
     #             time_bound=10, # minutes
     #             priority=0,
     #             allowed_value_types=[value_pb2.RAW],
     #             problem=ProblemDescription(problem=Problem(
-    #                 id="185_baseball",
+    #                 id="196_autoMpg",
     #                 version="3.1.2",
-    #                 name="185_baseball",
-    #                 description="Baseball dataset",
+    #                 name="196_autoMpg",
+    #                 description="autoMpg",
     #                 task_type=problem_pb2.REGRESSION,
-    #                 task_subtype=problem_pb2.NONE,
+    #                 task_subtype=problem_pb2.UNIVARIATE,
     #                 performance_metrics=[
     #                     ProblemPerformanceMetric(
-    #                         metric=problem_pb2.R_SQUARED,
-    #                         k=0,
-    #                         pos_label="None"
+    #                         metric=problem_pb2.MEAN_SQUARED_ERROR,
     #                     )]
     #                 ),
     #                 inputs=[ProblemInput(
-    #                     dataset_id="185_bl_dataset_TRAIN", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
+    #                     dataset_id="196_dataset", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
     #                     targets=[
     #                         ProblemTarget(
-    #                             target_index=17,
+    #                             target_index=0,
     #                             resource_id="0",
-    #                             column_index=17,
-    #                             column_name="Hall_of_Fame"
+    #                             column_index=8,
+    #                             column_name="class"
     #                         )
     #                     ])]
     #             ),
     #         template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-    #         inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json')]
+    #         inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/196_autoMpg/196_autoMpg_dataset/datasetDoc.json')]
     #     ))
     #     log_msg(reply)
     #     return reply
@@ -284,11 +321,14 @@ class Client(object):
             request_id=request_id
         ))
 
-        # Iterating here seems to kill the list - not sure why
+        results = []
+
+        # Iterating over yields from server
         for scoreSolutionResultsResponse in reply:
             log_msg(scoreSolutionResultsResponse)
+            results.append(scoreSolutionResultsResponse)
 
-        return reply
+        return results
 
     def endSearchSolutions(self, stub, search_id):
         _logger.info("Calling EndSearchSolutions with search_id: " + search_id)

@@ -348,7 +348,7 @@ class Controller:
             dataset_uri = self.dataset_schema_file
             self.dataset_schema_file = self.dataset_schema_file[7:]
         else:
-            dataset_uri = 'file://{}'.format(os.path.abspath(dataset_uri))
+            dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
         self.all_dataset = loader.load(dataset_uri=dataset_uri)
 
         # find the data resources type
