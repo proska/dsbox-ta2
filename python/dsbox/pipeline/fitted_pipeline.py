@@ -16,6 +16,7 @@ from .utils import larger_is_better
 
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
+
 class FittedPipeline:
     """
     Fitted pipeline
@@ -33,7 +34,7 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -47,12 +48,16 @@ class FittedPipeline:
         else:
             self.id = id
 
-        self.runtime = Runtime(pipeline)
+        self.log_dir = log_dir
+
+        self.runtime = Runtime(pipeline, self.id, self.log_dir)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
 
         self.metric: typing.Dict = {}
+
+        self.auxiliary: typing.Dict = {}
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.pipeline = fitted_pipe
@@ -100,7 +105,6 @@ class FittedPipeline:
     def get_produce_step_output(self, step_number: int):
         return self.runtime.produce_outputs[step_number]
 
-
     def save(self, folder_loc : str) -> None:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
@@ -117,11 +121,12 @@ class FittedPipeline:
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
-        structure['fitted_pipeline_id'] = self.id
+        structure['parent_id'] = self.pipeline.id
+        structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
 
         # Save pipeline rank
-        rank = -1.0
+        rank = sys.float_info.max
         metric = 'None'
         value = -1
         if self.metric:
@@ -137,6 +142,9 @@ class FittedPipeline:
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
+
+        # FIXME: this is here for testing purposes
+        # structure['runtime_stats'] = str(self.auxiliary)
 
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
@@ -167,7 +175,7 @@ class FittedPipeline:
 
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str,
-             pipeline_id: str, dataset_id: str = None) -> typing.Tuple[TP, Runtime]:
+             pipeline_id: str, log_dir: str, dataset_id: str = None) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -188,6 +196,7 @@ class FittedPipeline:
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
+        structure['id'] = structure['parent_id']
         dataset_id = structure.get('dataset_id')
 
         pipeline_to_load = Pipeline.from_json_structure(structure)
@@ -197,7 +206,7 @@ class FittedPipeline:
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
                                             fitted_pipeline_id)
 
-        run = Runtime(pipeline_to_load)
+        run = Runtime(pipeline_to_load, fitted_pipeline_id, log_dir)
 
         for i in range(0, len(run.execution_order)):
             # print("Now loading step", i)
@@ -211,7 +220,8 @@ class FittedPipeline:
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
                                      dataset_id=dataset_id,
-                                     id=fitted_pipeline_id)
+                                     id=fitted_pipeline_id,
+                                     log_dir=log_dir)
         fitted_pipeline_loaded._set_fitted(run.pipeline)
 
         return (fitted_pipeline_loaded, run)
@@ -233,6 +243,8 @@ class FittedPipeline:
         # add the fitted_primitives
         state['fitted_pipe'] = self.runtime.pipeline
         state['pipeline'] = self.pipeline.to_json_structure()
+        state['log_dir'] = self.log_dir
+        state['id'] = self.id
         del state['runtime']  # remove runtime entry
 
         return state
@@ -256,7 +268,7 @@ class FittedPipeline:
         structure = state['pipeline']
         state['pipeline'] = Pipeline.from_json_structure(structure)
 
-        run = Runtime(state['pipeline'])
+        run = Runtime(state['pipeline'], state['id'], state['log_dir'])
         run.pipeline = fitted
 
         state['runtime'] = run

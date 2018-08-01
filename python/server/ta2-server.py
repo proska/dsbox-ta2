@@ -32,7 +32,7 @@ PORT = 45042
 def serve():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--output', help='Output directory', default='/output')
+        '--output', help='Output directory', default='')
     parser.add_argument(
         '--debug-volume-map', action='append',
         help="Map config directories, e.g. --debug-volume-map /host/dir/output:/output --debug-volume-map /host/dir/input:/input",
@@ -49,8 +49,15 @@ def serve():
         dir_mapping[host_dir] = container_dir
         print('volume: {} to {}'.format(host_dir, container_dir))
 
+    output_dir = args.output
+    if output_dir=='':
+        if 'D3MOUTPUTDIR' in os.environ:
+            output_dir = os.path.abspath(os.environ['D3MOUTPUTDIR'])
+        else:
+            output_dir = '/output'
+
     servicer = TA2Servicer(
-        output_dir=args.output,
+        output_dir=output_dir,
         directory_mapping=dir_mapping,
         fitted_pipeline_id=args.load_pipeline)
 

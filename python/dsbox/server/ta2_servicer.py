@@ -92,7 +92,8 @@ from value_pb2 import ValueDict
 from dsbox.controller.controller import Controller
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+#logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
@@ -138,7 +139,7 @@ def to_pickle_blob(container) -> bytes:
     elif isinstance(container, d3m_container.Dataset):
         return pickle.dumps(d3m_container.pandas.dataset_serializer(container))
     else:
-        raise('Container type not recognized: {}'.format(type(container)))
+        raise Exception('Container type not recognized: {}'.format(type(container)))
 
 def to_pickle_file(container, file_transfer_directory, file_prefix: str) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.pkl')
@@ -152,7 +153,7 @@ def to_pickle_file(container, file_transfer_directory, file_prefix: str) -> str:
         elif isinstance(container, d3m_container.Dataset):
             pickle.dump(d3m_container.pandas.dataset_serializer(container), out)
         else:
-            raise('Container type not recognized: {}'.format(type(container)))
+            raise Exception('Container type not recognized: {}'.format(type(container)))
     return file_path
 
 def parse_step_output(output_reference: str) -> dict:
@@ -296,7 +297,7 @@ def check(message, *, depth=0):
     # if depth==0:
     #     print('====Begin Check')
     # if message is None:
-    #     raise('None value')
+    #     raise Exception('None value')
     # elif type(message) in [list, tuple] or 'RepeatedComposite' in str(type(message)):
     #     for i, value in enumerate(message):
     #         print(' ' * (4*depth), 'index=', i)
@@ -450,9 +451,9 @@ def to_proto_pipeline(pipeline : Pipeline, id:str = None) -> PipelineDescription
         users=users
     )
 
-def to_proto_search_solution_requests(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
 
-    search_solutions_results = []
+    # search_solutions_results = []
 
     timestamp = Timestamp()
 
@@ -489,7 +490,7 @@ def to_proto_search_solution_requests(problem, fitted_pipeline_id, metrics_resul
         SolutionSearchScore(
             scoring_configuration=scoring_config,
             scores=score_list))
-    search_solutions_results.append(GetSearchSolutionsResultsResponse(
+    result = GetSearchSolutionsResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
                           start=timestamp.GetCurrentTime(),
@@ -500,9 +501,9 @@ def to_proto_search_solution_requests(problem, fitted_pipeline_id, metrics_resul
         internal_score=0,
         # scores=None # Optional so we will not tackle it until needed
         scores=scores
-    ))
+    )
 
-    return search_solutions_results
+    return result
 
 
 def to_proto_steps_description(pipeline : Pipeline) -> typing.List[StepDescription]:
@@ -541,12 +542,20 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def __init__(self, *, directory_mapping = {}, fitted_pipeline_id: str = None, output_dir:str = '/output') -> None:
         self.log_msg("Init invoked")
         self.output_dir = output_dir
+        self.log_dir = os.path.join(self.output_dir, 'supporting_files', 'logs')
         self.directory_mapping = directory_mapping
-        self.controller = Controller('/')
+        self.controller = Controller()
+        self.controller.output_directory = output_dir
 
         self.file_transfer_directory = os.path.join(self.output_dir, 'tmp')
         if not os.path.exists(self.file_transfer_directory):
             os.makedirs(self.file_transfer_directory)
+
+        # maps search solution id to config file
+        self.search_solution = {}
+        self.search_solution_results = {}
+
+        self.score_solution = {}
 
         # maps fit solution id to fit solution request
         self.fit_solution: typing.Dict = {}
@@ -554,8 +563,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # maps produce solution id to produce solution request
         self.produce_solution: typing.Dict = {}
 
+        self._search_cache = {}
+
         if fitted_pipeline_id:
-            fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id)
+            fitted_pipeline, _ = FittedPipeline.load(
+                self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
 
@@ -596,29 +608,33 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         # Although called uri, it's just a filepath to datasetDoc.json
         dataset_uri = request.inputs[0].dataset_uri
+        self.dataset_uri = dataset_uri
+
         dataset_uri = self._map_directories(dataset_uri)
 
         config_dict = {
             'problem_json' : problem_json_dict,
             'problem_parsed' : problem_parsed,
             'dataset_schema': dataset_uri,
+            'pipeline_logs_root': os.path.join(self.output_dir, 'pipelines'),
+            'executables_root': os.path.join(self.output_dir, 'executables'),
+            'user_problems_root': os.path.join(self.output_dir, 'user_problems'),
+            'temp_storage_root': os.path.join(self.output_dir, 'supporting_files'),
             'timeout' : request.time_bound
         }
+        self.output_dir
 
-        if self.output_dir is not None:
-            config_dict['saving_folder_loc'] = self.output_dir
-
+        print('===config')
         pprint(config_dict)
 
-        self.controller.initialize_from_ta3(config_dict)
-
-        status = self.controller.train()
-
-        result = SearchSolutionsResponse(search_id=self.generateId())
+        request_id = self.generateId()
+        self.search_solution[request_id] = config_dict
+        result = SearchSolutionsResponse(search_id=request_id)
 
         check(result)
 
-        return SearchSolutionsResponse(search_id=self.generateId())
+        self.log_msg(msg="SearchSolutions returning")
+        return result
 
 
     '''
@@ -627,14 +643,31 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def GetSearchSolutionsResults(self, request, context):
         self.log_msg(msg="GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+        if not request.search_id in self.search_solution:
+            raise Exception('Search Solution ID not found ' +  request.search_id)
 
-        problem = self.controller.problem
-        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
-        metrics_result = self.controller.candidate.data['test_metrics']
-        search_solutions_results = to_proto_search_solution_requests(
-            problem, fitted_pipeline.id, metrics_result)
+        if request.search_id in self._search_cache:
+            search_solutions_results = self._search_cache[request.search_id]
+        else:
+            config_dict = self.search_solution[request.search_id]
 
-        check(search_solutions_results)
+            self.controller.initialize_from_ta3(config_dict)
+            status = self.controller.train()
+
+            self.search_solution_results[request.search_id] = self.controller.candidates
+
+            search_solutions_results = []
+            problem = self.controller.problem
+            for solution in self.controller.candidates.values():
+                fitted_pipeline_id = solution['id']
+                metrics_result = solution['test_metrics']
+                if metrics_result is not None:
+                    search_solutions_results.append(to_proto_search_solution_request(
+                        problem, fitted_pipeline_id, metrics_result))
+
+            check(search_solutions_results)
+
+            self._search_cache[request.search_id] = search_solutions_results
 
         for solution in search_solutions_results:
             yield solution
@@ -648,10 +681,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def ScoreSolution(self, request, context):
         self.log_msg(msg="ScoreSolution invoked with solution_id: " + request.solution_id)
 
+        request_id = self.generateId()
         result = ScoreSolutionResponse(
-            # Generate valid request id 22 characters long for TA3 tracking
-            request_id=self.generateId()
+            request_id=request_id
         )
+
+        self.score_solution[request_id] = request
 
         check(result)
 
@@ -664,16 +699,35 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def GetScoreSolutionResults(self, request, context):
         self.log_msg(msg="GetScoreSolutionResults invoked with request_id: " + request.request_id)
-        # For now just return the last scored fitted_pipeline
+
+        if not request.request_id in self.score_solution:
+            raise Exception('Request id not found ' +  request.request_id)
+
+        score_request = self.score_solution[request.request_id]
+
+        search_solutions_results = []
+
+        fitted_pipeline_id = score_request.solution_id
+
+        if score_request.inputs is not None:
+            dataset_uri = score_request.inputs[0].dataset_uri
+            if not self.dataset_uri == dataset_uri:
+                _logger.error("Dataset_uri not the same %s != %s", self.dataset_uri, dataset_uri)
 
         problem = self.controller.problem
-        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
-        metrics_result = self.controller.candidate.data['test_metrics']
-        search_solutions_results = to_proto_search_solution_requests(
-            problem, fitted_pipeline.id, metrics_result)
+        for results in self.search_solution_results.values():
+            for solution in results.values():
+                if score_request.solution_id==solution['id']:
+                    self.log_msg(msg='    Return search solution: {}'.format(solution))
+                    fitted_pipeline_id = solution['id']
+                    metrics_result = solution['test_metrics']
+                    if metrics_result is not None:
+                        search_solutions_results.append(to_proto_search_solution_request(
+                            problem, fitted_pipeline_id, metrics_result))
 
         check(search_solutions_results)
 
+        self.log_msg('    Returning {} results'.format(len(search_solutions_results)))
         for solution in search_solutions_results:
             yield solution
 
@@ -684,6 +738,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def EndSearchSolutions(self, request, context):
         self.log_msg(msg="EndSearchSolutions invoked with search_id: " + request.search_id)
+        self.search_solution.pop(request.search_id, None)
+        self.search_solution_results.pop(request.search_id, None)
 
         return EndSearchSolutionsResponse()
 
@@ -708,7 +764,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.log_msg(msg="ProduceSolution invoked with request_id " + request.fitted_solution_id)
         self.log_msg(request)
 
-        request_id = str(uuid.uuid4())
+        request_id = self.generateId()
         self.produce_solution[request_id] = {
             'request' : request,
             'start' : Timestamp().GetCurrentTime()
@@ -719,7 +775,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.log_msg(msg="GetProduceSolutionResults invoked with request_id " + request.request_id)
 
         if not request.request_id in self.produce_solution:
-            raise('Request id not found: ' + request.request_id)
+            raise Exception('Request id not found: ' + request.request_id)
 
         produce_request = self.produce_solution[request.request_id]['request']
         start_time = self.produce_solution[request.request_id]['start']
@@ -732,7 +788,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id)
+        fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
         timestamp = Timestamp()
@@ -783,7 +839,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.log_msg(msg="FitSolution invoked with request_id " + request.solution_id)
         self.log_msg(request)
 
-        request_id = str(uuid.uuid4())
+        request_id = self.generateId()
         self.fit_solution[request_id] = {
             'request' : request,
             'start' : Timestamp().GetCurrentTime()
@@ -794,7 +850,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.log_msg(msg="GetFitSolutionResults invoked with request_id " + request.request_id)
 
         if not request.request_id in self.fit_solution:
-            raise('Request id not found: ' + request.request_id)
+            raise Exception('Request id not found: ' + request.request_id)
 
         fit_request = self.fit_solution[request.request_id]['request']
         start_time = self.fit_solution[request.request_id]['start']
@@ -807,11 +863,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        old_fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id)
-        fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline, dataset.metadata.query(())['id'],
-                                         id=request.request_id,
+        old_fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
+                                         dataset.metadata.query(())['id'],
+                                         log_dir=self.log_dir,
+                                         id=str(uuid.uuid4()),
                                          metric_descriptions=old_fitted_pipeline.metric_descriptions)
         fitted_pipeline.fit(inputs=[dataset])
+        fitted_pipeline.produce(inputs=[dataset])
 
         fitted_pipeline.save(self.output_dir)
 
@@ -856,7 +915,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                               end=timestamp.GetCurrentTime()),
             steps=steps_progress,
             exposed_outputs=step_outputs,
-            fitted_solution_id=fitted_pipeline_id
+            fitted_solution_id=fitted_pipeline.id
         ))
 
         for result in fit_solution_results:
@@ -869,18 +928,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
     def DescribeSolution(self, request, context) -> DescribeSolutionResponse:
-        # pipeline = controller.getFittedPipeline(request.solution_id)
+        self.log_msg(msg="DescribeSolution invoked with soution_id " + request.solution_id)
 
-        if self.controller.candidate is None:
-            return DescribeSolutionResponse()
+        fitted_pipeline = self.controller.load_fitted_pipeline(request.solution_id)
 
-        if self.controller.candidate.data is None:
-            return DescribeSolutionResponse()
-
-        if not 'fitted_pipeline' in self.controller.candidate.data:
-            return DescribeSolutionResponse()
-
-        fitted_pipeline: FittedPipeline = self.controller.candidate.data['fitted_pipeline']
         pipeline = fitted_pipeline.pipeline
 
         result = DescribeSolutionResponse(

@@ -104,25 +104,27 @@ class Client(object):
 
         # 4. Ask for the current solutions
         solutions = self.processSearchSolutionsResultsResponses(stub, search_id)
+
         solution_id = None
-        for solution in solutions:
+        for count, solution in enumerate(solutions):
+            _logger.info('solution #{}'.format(count))
             solution_id = solution.solution_id
-            break # for now lets just work with one solution
+            # break # for now lets just work with one solution
 
-        # 5. Score the first of the solutions.
-        scoreSolution = self.scoreSolutionRequest(stub, solution_id)
-        request_id = scoreSolution.request_id
-        _logger.info("request id is: " + request_id)
+            # 5. Score the first of the solutions.
+            scoreSolution = self.scoreSolutionRequest(stub, solution_id)
+            request_id = scoreSolution.request_id
+            _logger.info("request id is: " + request_id)
 
-        # 6. Get Score Solution Results
-        scoreSolutionResults = self.getScoreSolutionResults(stub, request_id)
+            # 6. Get Score Solution Results
+            scoreSolutionResults = self.getScoreSolutionResults(stub, request_id)
 
-        # 7. Iterate over the score solution responses
-        i = 0 # TODO: Strangely, having iterated over this structure in the getScoreSolutionResults method the
-        # scoreSolutionResults shows as empty, hmmm
-        for scoreSolutionResultsResponse in scoreSolutionResults:
-            _logger.info("State of solution for run %s is %s" % (str(i), str(scoreSolutionResultsResponse.progress.state)))
-            i += 1
+            # 7. Iterate over the score solution responses
+            i = 0 # TODO: Strangely, having iterated over this structure in the getScoreSolutionResults method the
+            # scoreSolutionResults shows as empty, hmmm
+            for scoreSolutionResultsResponse in scoreSolutionResults:
+                _logger.info("State of solution for run %s is %s" % (str(i), str(scoreSolutionResultsResponse.progress.state)))
+                i += 1
 
         # 8. Now that we have some results lets can the Search Solutions request
         self.endSearchSolutions(stub, search_id)
@@ -245,9 +247,11 @@ class Client(object):
             search_id=search_id
         ))
 
+        results = []
         for searchSolutionsResultsResponse in reply:
             log_msg(searchSolutionsResultsResponse)
-        return reply
+            results.append(searchSolutionsResultsResponse)
+        return results
 
 
     '''
