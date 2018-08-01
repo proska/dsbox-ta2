@@ -302,8 +302,10 @@ class Client(object):
                             ProblemTarget(
                                 target_index=0,
                                 resource_id="0",
-                                column_index=7,
-                                column_name="Goals"
+                                column_index=6,
+                                column_name="School"
+                                # column_index=7,
+                                # column_name="Goals"
                             )
                         ])]
                 ),

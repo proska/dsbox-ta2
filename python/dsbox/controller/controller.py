@@ -956,28 +956,28 @@ class Controller:
         # values: typing.Dict[DimensionName, typing.List] = {}
         return SimpleConfigurationSpace(values)
 
-    def _check_and_set_dataset_metadata(self) -> None:
-        # Need to make sure the Target and TrueTarget column semantic types are set
-        if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
+    # def _check_and_set_dataset_metadata(self) -> None:
+    #     # Need to make sure the Target and TrueTarget column semantic types are set
+    #     if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
-            # start from last column, since typically target is the last column
-            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    ('0', ALL_ELEMENTS, index))['semantic_types']
-                if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
-                        and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in column_semantic_types):
-                    return
+    #         # start from last column, since typically target is the last column
+    #         for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+    #             column_semantic_types = self.all_dataset.metadata.query(
+    #                 ('0', ALL_ELEMENTS, index))['semantic_types']
+    #             if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
+    #                     and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in column_semantic_types):
+    #                 return
 
-            # If not set, use sugested target column
-            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    ('0', ALL_ELEMENTS, index))['semantic_types']
-                if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:
-                    column_semantic_types = list(column_semantic_types) + ['https://metadata.datadrivendiscovery.org/types/Target',
-                                                                           'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-                    self.all_dataset.metadata = self.all_dataset.metadata.update(
-                        ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
-                    return
+    #         # If not set, use sugested target column
+    #         for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+    #             column_semantic_types = self.all_dataset.metadata.query(
+    #                 ('0', ALL_ELEMENTS, index))['semantic_types']
+    #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:
+    #                 column_semantic_types = list(column_semantic_types) + ['https://metadata.datadrivendiscovery.org/types/Target',
+    #                                                                        'https://metadata.datadrivendiscovery.org/types/TrueTarget']
+    #                 self.all_dataset.metadata = self.all_dataset.metadata.update(
+    #                     ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
+    #                 return
 
-            raise InvalidArgumentValueError(
-                'At least one column should have semantic type SuggestedTarget')
+    #         raise InvalidArgumentValueError(
+    #             'At least one column should have semantic type SuggestedTarget')
