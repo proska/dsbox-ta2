@@ -596,6 +596,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         if not os.path.exists(self.file_transfer_directory):
             os.makedirs(self.file_transfer_directory)
 
+
+        self.problem_parsed = {}
         # maps search solution id to config file
         self.search_solution = {}
         self.search_solution_results = {}
@@ -650,6 +652,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pprint(problem_json_dict)
         print('==parsed')
         pprint(problem_parsed)
+
+        self.problem_parsed = problem_parsed
 
         # Although called uri, it's just a filepath to datasetDoc.json
         dataset_uri = request.inputs[0].dataset_uri
@@ -750,6 +754,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             raise Exception('Request id not found ' +  request.request_id)
 
         score_request = self.score_solution[request.request_id]
+        self.score_solution.pop(request.request_id)
 
         search_solutions_results = []
 
@@ -785,8 +790,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def EndSearchSolutions(self, request, context):
         self.log_msg(msg="EndSearchSolutions invoked with search_id: " + request.search_id)
-        self.search_solution.pop(request.search_id, None)
-        self.search_solution_results.pop(request.search_id, None)
+        self.problem_parsed = {}
+        self.search_solution.pop(request.search_id)
+        self.search_solution_results.pop(request.search_id)
 
         return EndSearchSolutionsResponse()
 
@@ -826,6 +832,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         produce_request = self.produce_solution[request.request_id]['request']
         start_time = self.produce_solution[request.request_id]['start']
+        self.produce_solution.pop(request.request_id)
 
         fitted_pipeline_id = produce_request.fitted_solution_id
 
@@ -859,7 +866,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
             if 'outputs' in expose_output:
                 entry_id = find_entry_id(dataset)
-                target_column_name = find_target_column_name(dataset, entry_id)
+                if self.problem_parsed:
+                    target_column_name = self.problem_parsed['inputs'][0]['targets']['column_name']
+                else:
+                    target_column_name = find_target_column_name(dataset, entry_id)
                 index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
                 dataframe.columns = [target_column_name]
                 dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
@@ -901,6 +911,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         fit_request = self.fit_solution[request.request_id]['request']
         start_time = self.fit_solution[request.request_id]['start']
+        self.fit_solution.pop(request.request_id)
 
         fitted_pipeline_id = fit_request.solution_id
 
@@ -944,7 +955,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
             if 'outputs' in expose_output:
                 entry_id = find_entry_id(dataset)
-                target_column_name = find_target_column_name(dataset, entry_id)
+                if self.problem_parsed:
+                    target_column_name = self.problem_parsed['inputs'][0]['targets']['column_name']
+                else:
+                    target_column_name = find_target_column_name(dataset, entry_id)
                 index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
                 dataframe.columns = [target_column_name]
                 dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
