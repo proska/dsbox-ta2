@@ -110,8 +110,7 @@ def find_target_column_name(dataset, entry_id):
     target_idx = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length'] - 1
     for col_idx in range(dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length']):
         semantic_types = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))['semantic_types']
-        if ("https://metadata.datadrivendiscovery.org/types/SuggestedTarget" in semantic_types
-            or "https://metadata.datadrivendiscovery.org/types/Target" in semantic_types
+        if ("https://metadata.datadrivendiscovery.org/types/Target" in semantic_types
             or "https://metadata.datadrivendiscovery.org/types/TrueTarget" in semantic_types):
             target_idx = col_idx
             break
