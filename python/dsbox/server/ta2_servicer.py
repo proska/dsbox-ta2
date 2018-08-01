@@ -109,9 +109,10 @@ def find_entry_id(dataset):
 def find_target_column_name(dataset, entry_id):
     target_idx = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length'] - 1
     for col_idx in range(dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length']):
-        if ("https://metadata.datadrivendiscovery.org/types/SuggestedTarget" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))
-            or "https://metadata.datadrivendiscovery.org/types/Target" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))
-            or "https://metadata.datadrivendiscovery.org/types/TrueTarget" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))):
+        semantic_types = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))['semantic_types']
+        if ("https://metadata.datadrivendiscovery.org/types/SuggestedTarget" in semantic_types
+            or "https://metadata.datadrivendiscovery.org/types/Target" in semantic_types
+            or "https://metadata.datadrivendiscovery.org/types/TrueTarget" in semantic_types):
             target_idx = col_idx
             break
     return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name']
@@ -119,7 +120,8 @@ def find_target_column_name(dataset, entry_id):
 def find_index_column_name_index(dataset, entry_id):
     target_idx = 0
     for col_idx in range(dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS))['dimension']['length']):
-        if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx)):
+        semantic_types = dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, col_idx))['semantic_types']
+        if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in semantic_types:
             target_idx = col_idx
             break
     return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name'], target_idx
