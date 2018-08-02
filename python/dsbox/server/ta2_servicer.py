@@ -127,7 +127,7 @@ def find_index_column_name_index(dataset, entry_id):
 
 def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=True) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
-    dataframe.to_csv(file_path, index=False)
+    dataframe.to_csv(file_path, index=index)
     return file_path
 
 def to_pickle_blob(container) -> bytes:
@@ -967,7 +967,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                     print(dataframe.head())
                     filepath = to_csv_file(dataframe,
                                            self.file_transfer_directory,
-                                           "produce_{}_{}".format(request.request_id, expose_output),
+                                           "fit_{}_{}".format(request.request_id, expose_output),
                                            index=False)
                 else:
                     entry_id = find_entry_id(dataset)

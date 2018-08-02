@@ -576,6 +576,9 @@ class Controller:
         # while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
+            if len(valids)==0:
+                print('[INFO] All templates have invalid UCT scores')
+                return
             _choices = list(map(lambda t: t[0], valids))
             _weights = list(map(lambda t: t[1], valids))
             selected = random_choices_without_replacement(_choices, _weights, 1)

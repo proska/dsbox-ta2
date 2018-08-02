@@ -46,7 +46,10 @@ _logger = logging.getLogger(__name__)
 
 
 # DATASET_URI='file:///nfs1/dsbox-repo/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json'
-DATASET_URI='file:///nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/LL0_1100_popularkids/LL0_1100_popularkids_dataset/datasetDoc.json'
+# DATASET_URI='file:///nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/LL0_1100_popularkids/LL0_1100_popularkids_dataset/datasetDoc.json'
+# DATASET_URI='file:///nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json'
+# DATASET_URI='file:///input/185_baseball_dataset/datasetDoc.json'
+DATASET_URI='file:///input/59_umls_dataset/datasetDoc.json'
 
 '''
 This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process.
@@ -231,7 +234,47 @@ class Client(object):
     #                     ])]
     #             ),
     #         template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-    #         inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json')]
+    #             # inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json')]
+    #             inputs=[Value(dataset_uri='/input/185_baseball_dataset/datasetDoc.json')]
+    #     ))
+    #     log_msg(reply)
+    #     return reply
+
+    # DATASET_URI='file:///input/185_baseball_dataset/datasetDoc.json'
+    # def searchSolutions(self, stub):
+    #     _logger.info("Calling Search Solutions:")
+    #     reply = stub.SearchSolutions(
+    #         SearchSolutionsRequest(
+    #             user_agent="Test Client",
+    #             version="2018.7.7",
+    #             time_bound=10, # minutes
+    #             priority=0,
+    #             allowed_value_types=[value_pb2.RAW],
+    #             problem=ProblemDescription(problem=Problem(
+    #                 id="185_baseball",
+    #                 version="3.1.2",
+    #                 name="185_baseball",
+    #                 description="Baseball dataset",
+    #                 task_type=problem_pb2.CLASSIFICATION,
+    #                 task_subtype=problem_pb2.MULTICLASS,
+    #                 performance_metrics=[
+    #                     ProblemPerformanceMetric(
+    #                         metric=problem_pb2.F1_MACRO,
+    #                     )]
+    #                 ),
+    #                 inputs=[ProblemInput(
+    #                     dataset_id="185_bl_dataset_TRAIN", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
+    #                     targets=[
+    #                         ProblemTarget(
+    #                             target_index=0,
+    #                             resource_id="0",
+    #                             column_index=18,
+    #                             column_name="Hall_of_Fame"
+    #                         )
+    #                     ])]
+    #             ),
+    #         template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
+    #             inputs=[Value(dataset_uri=DATASET_URI)]
     #     ))
     #     log_msg(reply)
     #     return reply
@@ -275,6 +318,46 @@ class Client(object):
     #     return reply
 
 
+    # def searchSolutions(self, stub):
+    #     _logger.info("Calling Search Solutions:")
+    #     reply = stub.SearchSolutions(
+    #         SearchSolutionsRequest(
+    #             user_agent="Test Client",
+    #             version="2018.7.7",
+    #             time_bound=10, # minutes
+    #             priority=0,
+    #             allowed_value_types=[value_pb2.RAW],
+    #             problem=ProblemDescription(problem=Problem(
+    #                 id="LL0_1100_popularkids_dataset",
+    #                 version="3.1.2",
+    #                 name="LL0_1100_popularkids_dataset",
+    #                 description="LL0_1100_popularkids",
+    #                 task_type=problem_pb2.CLASSIFICATION,
+    #                 task_subtype=problem_pb2.MULTICLASS,
+    #                 performance_metrics=[
+    #                     ProblemPerformanceMetric(
+    #                         metric=problem_pb2.F1_MACRO,
+    #                     )]
+    #                 ),
+    #                 inputs=[ProblemInput(
+    #                     dataset_id="LL0_1100_popularkids_dataset", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
+    #                     targets=[
+    #                         ProblemTarget(
+    #                             target_index=0,
+    #                             resource_id="0",
+    #                             # column_index=6,
+    #                             # column_name="School"
+    #                             column_index=7,
+    #                             column_name="Goals"
+    #                         )
+    #                     ])]
+    #             ),
+    #         template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
+    #             inputs=[Value(dataset_uri=DATASET_URI)]
+    #         ))
+    #     log_msg(reply)
+    #     return reply
+
     def searchSolutions(self, stub):
         _logger.info("Calling Search Solutions:")
         reply = stub.SearchSolutions(
@@ -285,33 +368,32 @@ class Client(object):
                 priority=0,
                 allowed_value_types=[value_pb2.RAW],
                 problem=ProblemDescription(problem=Problem(
-                    id="LL0_1100_popularkids_dataset",
+                    id="59_umls",
                     version="3.1.2",
-                    name="LL0_1100_popularkids_dataset",
-                    description="LL0_1100_popularkids",
-                    task_type=problem_pb2.CLASSIFICATION,
-                    task_subtype=problem_pb2.MULTICLASS,
+                    name="59_umls",
+                    description="UML Link Prediction",
+                    task_type=problem_pb2.LINK_PREDICTION,
+                    task_subtype=problem_pb2.NONE,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=problem_pb2.F1_MACRO,
+                            metric=problem_pb2.ACCURACY,
                         )]
                     ),
                     inputs=[ProblemInput(
-                        dataset_id="LL0_1100_popularkids_dataset", # d_185_bl_dataset_TRAIN for uncharted since they create their own version of the metadata
+                        dataset_id="59_umls",
                         targets=[
                             ProblemTarget(
                                 target_index=0,
-                                resource_id="0",
-                                column_index=6,
-                                column_name="School"
-                                # column_index=7,
-                                # column_name="Goals"
+                                resource_id="1",
+                                column_index=4,
+                                column_name="linkExists"
                             )
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
+                # inputs=[Value(dataset_uri='/nfs1/dsbox-repo/data/datasets/seed_datasets_current/185_baseball/185_baseball_dataset/datasetDoc.json')]
                 inputs=[Value(dataset_uri=DATASET_URI)]
-            ))
+        ))
         log_msg(reply)
         return reply
     '''
