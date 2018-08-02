@@ -377,7 +377,7 @@ def dsbox_generic_steps():
         },
         {
             "name": "scaler_step",
-            "primitives": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+            "primitives": ["d3m.primitives.sklearn_wrap.SKMaxAbsScaler"],
             "inputs": ["impute_step"]
         },
         {

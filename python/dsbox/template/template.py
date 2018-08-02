@@ -462,13 +462,8 @@ class DSBoxTemplate():
                         print("[INFO] ", solution, "added to step",
                               name)
                     except:
-                        print("Warning!", name,
-                              "'s primitive",
-                              # Fixme:
-                              # conf_step[-1]["primitive"],
-                              "'s inputs does not match",
-                              binding[in_arg][-1]["primitive"],
-                              "and there is no converter found")
+                        print('Warning! CONVERTER NEED for primitives', binding[name]["primitive"], binding[in_arg]["primitive"])
+                        print("Warning!: step={} key={}".format(name, check_key))
             mystep = {
                 "primitive": binding[name]["primitive"],
                 "hyperparameters": binding[name]["hyperparameters"],
