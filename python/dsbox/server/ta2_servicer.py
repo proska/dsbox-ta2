@@ -125,9 +125,9 @@ def find_index_column_name_index(dataset, entry_id):
             break
     return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name'], target_idx
 
-def to_csv_file(dataframe, file_transfer_directory, file_prefix: str) -> str:
+def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=True) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
-    dataframe.to_csv(file_path)
+    dataframe.to_csv(file_path, index=False)
     return file_path
 
 def to_pickle_blob(container) -> bytes:
@@ -753,7 +753,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             raise Exception('Request id not found ' +  request.request_id)
 
         score_request = self.score_solution[request.request_id]
-        self.score_solution.pop(request.request_id)
+        self.score_solution.pop(request.request_id, None)
 
         search_solutions_results = []
 
@@ -790,8 +790,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def EndSearchSolutions(self, request, context):
         self.log_msg(msg="EndSearchSolutions invoked with search_id: " + request.search_id)
         self.problem_parsed = {}
-        self.search_solution.pop(request.search_id)
-        self.search_solution_results.pop(request.search_id)
+        self.search_solution.pop(request.search_id, None)
+        self.search_solution_results.pop(request.search_id, None)
 
         return EndSearchSolutionsResponse()
 
@@ -831,7 +831,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         produce_request = self.produce_solution[request.request_id]['request']
         start_time = self.produce_solution[request.request_id]['start']
-        self.produce_solution.pop(request.request_id)
+        self.produce_solution.pop(request.request_id, None)
 
         fitted_pipeline_id = produce_request.fitted_solution_id
 
@@ -864,18 +864,26 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             dataframe = fitted_pipeline.get_produce_step_output(parsed_output['steps'])
 
             if 'outputs' in expose_output:
-                entry_id = find_entry_id(dataset)
-                if self.problem_parsed:
-                    target_column_name = self.problem_parsed['inputs'][0]['targets']['column_name']
+                if len(dataframe.columns) > 1:
+                    print(dataframe.shape)
+                    print(dataframe.columns)
+                    print(dataframe.head())
+                    filepath = to_csv_file(dataframe,
+                                           self.file_transfer_directory,
+                                           "produce_{}_{}".format(request.request_id, expose_output),
+                                           index=False)
                 else:
-                    target_column_name = find_target_column_name(dataset, entry_id)
-                index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
-                dataframe.columns = [target_column_name]
-                dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
-                dataframe.columns = [index_column_name, target_column_name]
-                dataframe = dataframe.set_index(index_column_name)
-
-            filepath = to_csv_file(dataframe, self.file_transfer_directory, "produce_{}_{}".format(request.request_id, expose_output))
+                    entry_id = find_entry_id(dataset)
+                    if self.problem_parsed:
+                        target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+                    else:
+                        target_column_name = find_target_column_name(dataset, entry_id)
+                    index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
+                    dataframe.columns = [target_column_name]
+                    dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                    dataframe.columns = [index_column_name, target_column_name]
+                    dataframe = dataframe.set_index(index_column_name)
+                    filepath = to_csv_file(dataframe, self.file_transfer_directory, "produce_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
         produce_solution_results = []
@@ -910,7 +918,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         fit_request = self.fit_solution[request.request_id]['request']
         start_time = self.fit_solution[request.request_id]['start']
-        self.fit_solution.pop(request.request_id)
+        self.fit_solution.pop(request.request_id, None)
 
         fitted_pipeline_id = fit_request.solution_id
 
@@ -953,18 +961,27 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             dataframe = fitted_pipeline.get_fit_step_output(parsed_output['steps'])
 
             if 'outputs' in expose_output:
-                entry_id = find_entry_id(dataset)
-                if self.problem_parsed:
-                    target_column_name = self.problem_parsed['inputs'][0]['targets']['column_name']
+                if len(dataframe.columns) > 1:
+                    print(dataframe.shape)
+                    print(dataframe.columns)
+                    print(dataframe.head())
+                    filepath = to_csv_file(dataframe,
+                                           self.file_transfer_directory,
+                                           "produce_{}_{}".format(request.request_id, expose_output),
+                                           index=False)
                 else:
-                    target_column_name = find_target_column_name(dataset, entry_id)
-                index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
-                dataframe.columns = [target_column_name]
-                dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
-                dataframe.columns = [index_column_name, target_column_name]
-                dataframe = dataframe.set_index(index_column_name)
+                    entry_id = find_entry_id(dataset)
+                    if self.problem_parsed:
+                        target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+                    else:
+                        target_column_name = find_target_column_name(dataset, entry_id)
+                    index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
+                    dataframe.columns = [target_column_name]
+                    dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                    dataframe.columns = [index_column_name, target_column_name]
+                    dataframe = dataframe.set_index(index_column_name)
 
-            filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
+                    filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
             step_outputs[expose_output] = Value(csv_uri=filepath)
 
         fit_solution_results = []
