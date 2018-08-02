@@ -108,7 +108,7 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
     return dataset
 
 
-def split_dataset(dataset, problem_info: typing.Dict, *, random_state=42, test_size=0.2, n_splits=1):
+def split_dataset(dataset, problem_info: typing.Dict, *, random_state=4676, test_size=0.2, n_splits=1):
     '''
         Split dataset into training and test
     '''
@@ -263,7 +263,8 @@ class Controller:
         self.primitive: typing.Dict = d3m.index.search()
 
         # set random seed
-        random.seed(4676)
+        # Commented out based on TA3 request
+        # random.seed(4676)
 
         # Output directories
         self.output_directory: str = '/output/'
