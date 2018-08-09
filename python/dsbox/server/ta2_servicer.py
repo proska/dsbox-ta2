@@ -10,6 +10,7 @@ import uuid
 
 import pandas as pd
 import numpy as np
+from keras import backend as keras_backend
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ta3ta2_api = os.path.abspath(os.path.join(
@@ -641,6 +642,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def SearchSolutions(self, request, context):
         self.log_msg(msg="SearchSolutions invoked")
 
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
+
         if not request.version==core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version]:
             _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
@@ -691,8 +695,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
     def GetSearchSolutionsResults(self, request, context):
         self.log_msg(msg="GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+
         if not request.search_id in self.search_solution:
             raise Exception('Search Solution ID not found ' +  request.search_id)
+
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
 
         if request.search_id in self._search_cache:
             search_solutions_results = self._search_cache[request.search_id]
@@ -751,6 +759,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         if not request.request_id in self.score_solution:
             raise Exception('Request id not found ' +  request.request_id)
+
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
 
         score_request = self.score_solution[request.request_id]
         self.score_solution.pop(request.request_id, None)
@@ -829,6 +840,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         if not request.request_id in self.produce_solution:
             raise Exception('Request id not found: ' + request.request_id)
 
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
+
         produce_request = self.produce_solution[request.request_id]['request']
         start_time = self.produce_solution[request.request_id]['start']
         self.produce_solution.pop(request.request_id, None)
@@ -841,6 +855,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
+        print('Load fitted pipeline', self.output_dir, fitted_pipeline_id)
         fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
@@ -915,6 +930,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         if not request.request_id in self.fit_solution:
             raise Exception('Request id not found: ' + request.request_id)
+
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
 
         fit_request = self.fit_solution[request.request_id]['request']
         start_time = self.fit_solution[request.request_id]['start']
@@ -1006,6 +1024,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
     def DescribeSolution(self, request, context) -> DescribeSolutionResponse:
         self.log_msg(msg="DescribeSolution invoked with soution_id " + request.solution_id)
+
+        # Workaround for loading in keras graphs multiple times
+        keras_backend.clear_session()
 
         fitted_pipeline = self.controller.load_fitted_pipeline(request.solution_id)
 
