@@ -83,6 +83,10 @@ DATASETS_INFO['59_umls'] = DatasetInfo(
     '59_umls',
     problem_pb2.LINK_PREDICTION, problem_pb2.NONE, problem_pb2.ACCURACY,
     0, '1', 4, 'linkExists')
+DATASETS_INFO['22_handgeometry'] = DatasetInfo(
+    '22_handgeometry',
+    problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
+    0, '1', 2, 'WRISTBREADTH')
 
 
 '''
