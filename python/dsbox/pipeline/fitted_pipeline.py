@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import pickle
 import pprint
 import sys
@@ -16,6 +17,7 @@ from .utils import larger_is_better
 
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
+_logger = logging.getLogger(__name__)
 
 class FittedPipeline:
     """
@@ -59,6 +61,8 @@ class FittedPipeline:
 
         self.auxiliary: typing.Dict = {}
 
+        _logger.debug('Creating fitted pipeline %s', self.id)
+
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.pipeline = fitted_pipe
 
@@ -91,9 +95,11 @@ class FittedPipeline:
         self.metric = metric
 
     def fit(self, **arguments):
+        _logger.debug('Fitting fitted pipeline %s', self.id)
         self.runtime.fit(**arguments)
 
     def produce(self, **arguments):
+        _logger.debug('Producing fitted pipeline %s', self.id)
         self.runtime.produce(**arguments)
 
     def get_cross_validation_metrics(self) -> typing.List:
@@ -109,6 +115,7 @@ class FittedPipeline:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
+        _logger.debug('Saving fitted pipeline %s', self.id)
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
         executable_dir = os.path.join(folder_loc, 'executables')
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
@@ -121,13 +128,13 @@ class FittedPipeline:
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
-        structure['parent_id'] = self.pipeline.id
+        structure["parent_id"] = self.pipeline.id
         structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
 
         # Save pipeline rank
-        rank = sys.float_info.max
-        metric = 'None'
+        rank = -1.0
+        metric = ""
         value = -1
         if self.metric:
             metric: str = self.metric['metric']
@@ -175,7 +182,7 @@ class FittedPipeline:
 
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str,
-             pipeline_id: str, log_dir: str, dataset_id: str = None) -> typing.Tuple[TP, Runtime]:
+             pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -196,7 +203,7 @@ class FittedPipeline:
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
-        structure['id'] = structure['parent_id']
+        structure["id"] = structure["parent_id"]
         dataset_id = structure.get('dataset_id')
 
         pipeline_to_load = Pipeline.from_json_structure(structure)

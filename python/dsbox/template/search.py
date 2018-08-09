@@ -1,12 +1,12 @@
 import bisect
+import copy
+import logging
 import operator
 import os
 import random
 import time
 import traceback
 import typing
-import logging
-import copy
 import sys
 
 from warnings import warn
@@ -33,26 +33,36 @@ from .configuration_space import ConfigurationPoint
 from .configuration_space import ConfigurationSpace
 from .configuration_space import SimpleConfigurationSpace
 
-USE_MULTIPROCESSING=False
-
 T = typing.TypeVar("T")
 
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
+    targetcol = None
     problem = problem_doc_metadata.query(())["inputs"]["data"]
     datameta = dataset.metadata
     target = problem[0]["targets"]
-    resID = target[0]["resID"]
-    colIndex = target[0]["colIndex"]
-    datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
+    resID_list = []
+    colIndex_list = []
     targetlist = []
+    # sometimes we will have multiple targets, so we need to add a for loop here
+    for i in range(len(target)):
+        resID_list.append(target[i]["resID"])
+        colIndex_list.append(target[i]["colIndex"])
+    if len(set(resID_list)) > 1:
+        print("[ERROR] Multiple targets in different dataset???")
+
+    datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
+
     for v in range(datalength):
-        types = datameta.query((resID, ALL_ELEMENTS, v))["semantic_types"]
+        types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
             if t == 'https://metadata.datadrivendiscovery.org/types/PrimaryKey':
                 targetlist.append(v)
-    targetlist.append(colIndex)
-    targetcol = dataset[resID].iloc[:, targetlist]
+    for each in targetlist:
+        colIndex_list.append(each)
+    colIndex_list.sort()
+
+    targetcol = dataset[resID_list[0]].iloc[:, colIndex_list]
     return targetcol
 
 _logger = logging.getLogger(__name__)
@@ -72,11 +82,13 @@ class DimensionalSearch(typing.Generic[T]):
     """
 
     def __init__(self, evaluate: typing.Callable[[ConfigurationPoint[T]], typing.Tuple[float, dict]],
-                 configuration_space: ConfigurationSpace[T], minimize: bool) -> None:
+                 configuration_space: ConfigurationSpace[T], minimize: bool,
+                 use_multiprocessing: bool = True) -> None:
         self.evaluate = evaluate
         self.configuration_space = configuration_space
         self.minimize = minimize
         self.dimension_ordering = configuration_space.get_dimension_search_ordering()
+        self.use_multiprocessing = use_multiprocessing
 
     def random_assignment(self) -> typing.Dict[DimensionName, T]:
         """
@@ -124,7 +136,6 @@ class DimensionalSearch(typing.Generic[T]):
         key = hash(str(candidate))
         cand_id = result['fitted_pipeline'].id if result else None
         value = result['test_metrics'][0]['value'] if result else None
-        test_metrics = result['test_metrics'] if result else None
         # add value to candidate cache
 
         if self._is_candidate_hit(candidate, cand_cache):
@@ -137,7 +148,8 @@ class DimensionalSearch(typing.Generic[T]):
             "candidate": candidate,
             "id": cand_id,
             "value": value,
-            "test_metrics" : test_metrics
+            # TA3
+            'test_metrics' : result['test_metrics']
         }
 
     def _is_candidate_hit(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> bool:
@@ -175,7 +187,7 @@ class DimensionalSearch(typing.Generic[T]):
         if cache_bundle[0] is None or cache_bundle[1] is None:
             print("[INFO] Using Local Cache")
             local_cache = True
-            if USE_MULTIPROCESSING:
+            if self.use_multiprocessing:
                 manager = Manager()
                 cache = manager.dict()
                 candidate_cache = manager.dict()
@@ -236,7 +248,9 @@ class DimensionalSearch(typing.Generic[T]):
             sucessful_candidates = []
 
             # No need to evaluate if value is already known
+            reuse_candidate_value = False
             if candidate_value is not None and candidate[dimension] in selected:
+                reuse_candidate_value = True
                 selected.remove(candidate[dimension])
                 # also add this candidate to the succesfully_candidates to make comparisons easier
                 sucessful_candidates.append(candidate)
@@ -258,10 +272,11 @@ class DimensionalSearch(typing.Generic[T]):
             best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
+            _logger.info("Running Pool for step {} fork_num: {}".format(dimension, len(new_candidates)))
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
-                if USE_MULTIPROCESSING:
+                if self.use_multiprocessing:
                     with Pool(self.num_workers) as p:
                         results = p.map(
                             self.evaluate,
@@ -278,15 +293,18 @@ class DimensionalSearch(typing.Generic[T]):
                         print("-" * 10)
                         continue
 
-                    ## Always use 'test_metrics' since it is generated using test_dataset1
-                    # if len(res['cross_validation_metrics']) > 0:
-                    #     cross_validation_mode = True
+                    # Always use 'test_metrics' since it is generated using test_dataset1
+                    if len(res['cross_validation_metrics']) > 0:
+                        cross_validation_mode = True
                     #     score_values.append(res['cross_validation_metrics'][0]['value'])
-                    # else:
-                    #     score_values.append(res['test_metrics'][0]['value'])
-                    #     cross_validation_mode = False
-                    score_values.append(res['test_metrics'][0]['value'])
-                    cross_validation_mode = False
+                    else:
+                        # score_values.append(res['test_metrics'][0]['value'])
+                        cross_validation_mode = False
+                    target_amount = len(res['test_metrics'][0])
+                    combined_score = 0.0
+                    for each_target in res['test_metrics'][0]:
+                        combined_score = combined_score + combined_score / float(target_amount)
+                    score_values.append(combined_score)
 
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
@@ -295,16 +313,15 @@ class DimensionalSearch(typing.Generic[T]):
                     x.data.update(res)
                     sucessful_candidates.append(x)
             except:
+                _logger.exception('Search dimension {}'.format(dimension))
                 traceback.print_exc()
 
-            # If all candidates failed, only the initial one in the score_values
-            if len(score_values) == 1:
-                print("[INFO] No new Candidate worked in this step!")
-                if not candidate:
-                    print("[ERROR] The template did not return any valid pipelines!")
-                    return (None, None)
-                else:
-                    continue
+            # If all candidates failed
+            if len(score_values) == 0 or (reuse_candidate_value and len(score_values) == 1):
+                print("[INFO] No candidates worked in this step!!")
+                _logger.info("No candidates worked in this step!")
+                continue
+
             # Find best candidate
             if self.minimize:
                 best_index = score_values.index(min(score_values))
@@ -314,10 +331,15 @@ class DimensionalSearch(typing.Generic[T]):
             # # for conditions that no test dataset given or in the new training mode
             # if sum(test_values) == 0 and cross_validation_values:
             #     best_index = best_cv_index
+
+            if _logger.getEffectiveLevel() <= 10:
+                _logger.debug('All score from step {}:{}'.format(dimension, ['{:0.4f}'.format(x) for x in score_values]))
             if cross_validation_mode:
-                print("[INFO] Best index:", best_index, " --> CV matrix score:", score_values[best_index])
+                print("[INFO] Best index:", best_index, " --> CV matric score:", score_values[best_index])
+                _logger.info("Best index: {} --> CV matric score: {}".format(best_index, score_values[best_index]))
             else:
-                print("[INFO] Best index:", best_index, " --> Test matrix score:", score_values[best_index])
+                print("[INFO] Best index:", best_index, " --> Test matric score:", score_values[best_index])
+                _logger.info("Best index: {} --> Test matric score: {}".format(best_index, score_values[best_index]))
 
             # put the best candidate pipeline and results to candidate
             candidate = sucessful_candidates[best_index]
@@ -326,7 +348,7 @@ class DimensionalSearch(typing.Generic[T]):
 
         # shutdown the cache manager
         if local_cache:
-            if USE_MULTIPROCESSING:
+            if self.use_multiprocessing:
                 manager.shutdown()
             else:
                 cache = dict()
@@ -403,8 +425,9 @@ class DimensionalSearch(typing.Generic[T]):
                 else:
                     return (candidate, result['test_metrics'][0]['value'])
             except:
+                _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
                 traceback.print_exc()
-                print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
                 print("-" * 20)
                 candidate = ConfigurationPoint(self.configuration_space,
@@ -474,11 +497,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  performance_metrics: typing.List[typing.Dict],
                  output_directory: str,
                  log_dir: str,
-                 num_workers: int = 0) -> None:
+                 num_workers: int = 0,
+                 use_multiprocessing: bool = True) -> None:
 
         # Use first metric from test
         minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
-        super().__init__(self.evaluate_pipeline, configuration_space, minimize)
+        super().__init__(self.evaluate_pipeline, configuration_space, minimize, use_multiprocessing=use_multiprocessing)
 
         self.template = template
         #self.config = config
@@ -506,11 +530,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # print("[INFO] number of workers:", self.num_workers)
 
-        # new searching method: first check whether we will do corss validation or not
-        #!!!!
-        # TODO: add some function to determine whether to go quick mode or not
+        # new searching method: first check whether we should train a second time with dataset_train1
+        self.go_quick_inputType = ["image","audio","video"]
+        self.quick_mode = self._use_quick_mode_or_not()
 
-        self.quick_mode = True
+        # new searching method: first check whether we will do corss validation or not
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
         # testing_mode = 1: cross validation mode
@@ -528,6 +552,16 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
 
+    def _use_quick_mode_or_not(self) -> bool:
+        '''
+            The function to determine whether to use quick mode or now
+            Now it is hard coded
+        '''
+        for each_type in self.template.template['inputType']:
+            if each_type in self.go_quick_inputType:
+                return True
+        return False
+
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
         Evaluate at configuration point.
@@ -540,6 +574,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         try:
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
         except:
+            _logger.exception('Evaulate pipeline failed')
             traceback.print_exc()
             return None
         # configuration.data.update(new_data)
@@ -568,17 +603,17 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
-
             training_metrics, test_metrics = self._calculate_score(
                 training_ground_truth, training_prediction, None, None)
 
             # copy the cross validation score here to test_metrics for return
             test_metrics = copy.deepcopy(training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
-            # generate a test matrics results with score = worst value
             if larger_is_better(training_metrics):
-                test_metrics[0]["value"] = 0
+                for each in test_metrics:
+                    each["value"] = 0
             else:
-                test_metrics[0]["value"] = sys.float_info.max
+                for each in test_metrics:
+                    each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
@@ -616,10 +651,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # if no test_dataset exist, we need to give it with a default value
                 if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
-                    if larger_is_better(training_metrics):
-                        test_metrics_each[0]["value"] = 0
+                    if larger_is_better(training_metrics_each):
+                        for each in test_metrics_each:
+                            each["value"] = 0
                     else:
-                        test_metrics_each[0]["value"] = sys.float_info.max
+                        for each in test_metrics_each:
+                            each["value"] = sys.float_info.max
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -628,27 +665,69 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # modify the test_metrics and training_metrics format to fit the requirements
             print("[INFO] Testing finish.!!!")
             if len(training_metrics) > 1:
-                training_value_list = []
-                test_value_list = []
+                training_value_dict = {}
+                # convert for training matrics
                 for each in training_metrics:
-                    training_value_list.append(each['value'])
-                    test_value_list.append(each['value'])
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in training_value_dict:
+                            # if this key exist, we append it
+                            training_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            training_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in training_value_dict:
+                                training_value_dict[each_target['column_name']].append(each_target['value'])
+                            else:
+                                training_value_dict[each_target['column_name']] = [each_target['value']]
                 # training_metrics part
+
                 training_metrics_new = training_metrics[0]
-                training_metrics_new['value'] = sum(training_value_list) / len(training_value_list)
-                training_metrics_new['values'] = training_value_list
+                count = 0
+                for (k, v) in training_value_dict.items():
+                    training_metrics_new[count]['value'] = sum(v) / len(v)
+                    training_metrics_new[count]['values'] = v
+                    count += 1
                 training_metrics = [training_metrics_new]
+
+            else:
+                if type(training_metrics[0]) is list:
+                    training_metrics = training_metrics[0]
+
+            if len(test_metrics) > 1:
+                test_value_dict = {}
+                # convert for test matrics
+                for each in test_metrics:
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in test_value_dict:
+                            # if this key exist, we append it
+                            test_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            test_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in test_value_dict:
+                                test_value_dict[each_target['column_name']].append(each_target['value'])
+                            else:
+                                test_value_dict[each_target['column_name']] = [each_target['value']]
+
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
-                test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
-                test_metrics_new['values'] = test_value_list
+                count = 0
+                for (k, v) in test_value_dict.items():
+                    test_metrics_new[count]['value'] = sum(v) / len(v)
+                    test_metrics_new[count]['values'] = v
+                    count += 1
                 test_metrics = [test_metrics_new]
+
             else:
                 if type(test_metrics[0]) is list:
                     test_metrics = test_metrics[0]
-                    training_metrics = training_metrics[0]
         # END evaluation part
-
 
         # Save results
         if self.test_dataset1 is None:
@@ -670,15 +749,35 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
+            if _logger.getEffectiveLevel() <= 10:
+                data_to_logger_info = []
+                if 'metric' in data['test_metrics']:
+                    data_to_logger_info.append(data['test_metrics']['metric'])
+                else:
+                    data_to_logger_info.append("No test metrics metric found")
+                if 'value' in data['test_metrics']:
+                    data_to_logger_info.append(data['test_metrics']['value'])
+                else:
+                    data_to_logger_info.append("No test metrics value found")
+                _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
+                             {
+                                 'fitted_pipeline_id' : fitted_pipeline2.id,
+                                 'metric' : data_to_logger_info[0],
+                                 'value' : data_to_logger_info[1]
+                             })
+
+            # Save fitted pipeline
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
 
+            # Pickle test
+            # if self.output_directory is not None and dump2disk:
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
             #                                pipeline_id=fitted_pipeline2.id,
             #                                test_dataset=self.train_dataset2[0],
             #                                test_metrics=training_metrics,
-            #                                test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
+            #                                test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -698,7 +797,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
             # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-
             training_metrics2, test_metrics2 = self._calculate_score(
                 None, None, test_ground_truth, test_prediction)
 
@@ -723,13 +821,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
+            # Save fiteed pipeline
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
 
-                # _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-                # _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
-
+            # Pickle test
+            # if self.output_directory is not None and dump2disk:
+            #     _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+            #     test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+            #     _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
 
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -747,6 +847,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         '''
         training_metrics = []
         test_metrics = []
+        if training_prediction is not None:
+            training_prediction = self.graph_problem_conversion(training_prediction)
+        if test_prediction is not None:
+            test_prediction = self.graph_problem_conversion(test_prediction)
+        target_amount_train = 0
+        target_amount_test = 0
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
@@ -755,63 +861,78 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             try:
                 # generate the metrics for training results
                 if training_ground_truth is not None and training_prediction is not None:  # if training data exist
-                    if regression_mode:
-                        training_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                training_ground_truth.iloc[:, -1].astype(float),
-                                training_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                    if "d3mIndex" not in training_prediction.columns:
+                        # for the condition that training_ground_truth have index but training_prediction don't have
+                        target_amount_train = len(training_prediction.columns)
                     else:
-                        if training_ground_truth is not None and training_prediction is not None:  # if training data exist
+                        target_amount_train = len(training_prediction.columns) - 1
+                    if regression_mode:
+                        for each_column in range(- target_amount_train, 0, 1):
                             training_metrics.append({
+                                'column_name': training_ground_truth.columns[each_column],
                                 'metric': metric_description['metric'],
                                 'value': metric(
-                                    training_ground_truth.iloc[:, -1].astype(str),
-                                    training_prediction.iloc[:, -1].astype(str),
+                                    training_ground_truth.iloc[:, each_column].astype(float),
+                                    training_prediction.iloc[:, each_column].astype(float),
                                     **params
                                 )
                             })
+                    else:
+                        if training_ground_truth is not None and training_prediction is not None:  # if training data exist
+                            for each_column in range(- target_amount_train, 0, 1):
+                                training_metrics.append({
+                                    'column_name': training_ground_truth.columns[each_column],
+                                    'metric': metric_description['metric'],
+                                    'value': metric(
+                                        training_ground_truth.iloc[:, each_column].astype(str),
+                                        training_prediction.iloc[:, each_column].astype(str),
+                                        **params
+                                    )
+                                })
                 # generate the metrics for testing results
                 if test_ground_truth is not None and test_prediction is not None:  # if testing data exist
+                    if "d3mIndex" not in test_prediction.columns:
+                        # for the condition that training_ground_truth have index but training_prediction don't have
+                        target_amount_test = len(test_prediction.columns)
+                    else:
+                        target_amount_test = len(test_prediction.columns) - 1
                     # if the test_ground_truth do not have results
                     if regression_mode:
-                        if test_ground_truth.iloc[0, -1] == '':
-                            test_ground_truth.iloc[:, -1] = 0
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(float),
-                                test_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                        for each_column in range(- target_amount_test, 0, 1):
+                            if test_ground_truth.iloc[0, -1] == '':
+                                test_ground_truth.iloc[:, -1] = 0
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(float),
+                                    test_prediction.iloc[:, -1].astype(float),
+                                    **params
+                                )
+                            })
 
                     else:
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(str),
-                                test_prediction.iloc[:, -1].astype(str),
-                                **params
-                            )
-                        })
+                        for each_column in range(- target_amount_test, 0, 1):
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(str),
+                                    test_prediction.iloc[:, -1].astype(str),
+                                    **params
+                                )
+                            })
             except:
                 raise NotSupportedError('[ERROR] metric calculation failed')
         # END for loop
 
-        # if len(training_metrics) == 1:
-        #     training_metrics = training_metrics[0]
-        # el
-        if len(training_metrics) > 1:
-            print("[WARN] More than one training metrics found in one evaluation.")
+        if len(training_metrics) > target_amount_train:
+            print("[WARN] Training metrics's amount is larger than target amount.")
         # if len(test_metrics) == 1:
         #     test_metrics = test_metrics[0]
         # el
-        if len(test_metrics) > 1:
-            print("[WARN] More than one test metrics found in one evaluation.")
+        if len(test_metrics) > target_amount_test:
+            print("[WARN] Test metrics's amount is larger than target amount.")
 
         # return the training and test metrics
         return (training_metrics, test_metrics)
@@ -826,8 +947,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
-
-        test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
+        pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
+        _, test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -867,7 +988,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         print('=== test2')
         print(test_pipeline_metrics2)
 
-        pairs = zip(test_metrics, test_pipeline_metrics)
+        pairs = zip(test_metrics, test_pipeline_metrics2)
         if any(x != y for x, y in pairs):
             warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
             print(
@@ -886,11 +1007,30 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     'pickled_pipeline__metric': test_pipeline_metrics
                 },
             )
+            print(
+                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.".format(
+                    {
+                        'id': fitted_pipeline.id,
+                        'test__metric': test_metrics,
+                        'pickled_pipeline__metric': test_pipeline_metrics
+                    })
+            )
             print("\n" * 5)
         else:
             print("\n" * 5)
             print("Pickling succeeded")
             print("\n" * 5)
+
+    def graph_problem_conversion(self, prediction):
+        tasktype = self.template.template["taskType"]
+        if isinstance(tasktype, set):
+            for t in tasktype:
+                if t == "GRAPH_MATCHING" or t == "VERTEX_NOMINATION" or t == "LINK_PREDICTION":
+                    prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        else:
+            if tasktype == "GRAPH_MATCHING" or tasktype == "VERTEX_NOMINATION" or tasktype == "LINK_PREDICTION":
+                prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        return prediction
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
