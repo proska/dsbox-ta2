@@ -31,15 +31,16 @@ def main():
     timeout = 0
     if os.environ["D3MRUN"] == "search":
         config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
+        write_results_time = 2
+        timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     else:
         config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
+        timeout = 60
 
     config["cpus"] = os.environ["D3MCPU"]
     config["ram"] = os.environ["D3MRAM"]
 
     # Time to write results (in minutes)
-    write_results_time = 2
-    timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     config["timeout"] = timeout
 
     controller = Controller(development_mode=False)
