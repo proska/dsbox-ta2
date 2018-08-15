@@ -12,6 +12,7 @@ from dsbox.controller.controller import Status
 
 start_time = time.time()
 
+
 def kill_child_processes(parent_pid, sig=signal.SIGTERM):
     ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
     ps_output = ps_command.stdout.read()
@@ -24,31 +25,6 @@ def kill_child_processes(parent_pid, sig=signal.SIGTERM):
             os.kill(int(pid_str), sig)
         except:
             pass
-
-class StdoutLogger(object):
-    def __init__(self, f):
-        self.terminal = sys.stdout
-        self.log = f
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        self.log.flush()
-
-
-class StderrLogger(object):
-    def __init__(self, f):
-        self.err = sys.stderr
-        self.log = f
-
-    def write(self, message):
-        self.err.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        self.log.flush()
 
 
 def main():
@@ -65,25 +41,6 @@ def main():
     write_results_time = 2
     timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     config["timeout"] = timeout
-
-    if 'logs_root' in config:
-        std_dir = os.path.abspath(config['logs_root'])
-    else:
-        std_dir = os.path.join(config['temp_storage_root'], 'logs')
-
-    os.makedirs(std_dir, exist_ok=True)
-
-    orig_stdout = sys.stdout
-    orig_stderr = sys.stderr
-    f = open(os.path.join(std_dir, 'out.txt'), 'w')
-
-    sys.stdout = StdoutLogger(f)
-    sys.stderr = StderrLogger(f)
-
-    sys.stdout = orig_stdout
-    sys.stderr = orig_stderr
-
-    f.close()
 
     controller = Controller(development_mode=False)
 
@@ -117,8 +74,6 @@ def main():
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
             os._exit(0)
 
-
-
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)
         signal.alarm(60 * timeout)
@@ -137,7 +92,16 @@ def main():
     elif 'test_data_root' in config:
         print("[INFO] Now in testing process")
         controller.initialize_from_config_for_evaluation(config)
-        fitted_pipeline_id = json.load(open(os.environ["D3MTESTOPT"], 'r'))["fitted_pipeline_id"]
+        pipelines_dir = os.path.join(os.environ["D3MOUTPUTDIR"], 'pipelines')
+        pipelines = [os.path.join(pipelines_dir, f) for f in os.listdir(pipelines_dir) if f.endswith(".json")]
+        rank_lst = list()
+        for pipeline in pipelines:
+            try:
+                pipeline_json = json.load(open(pipeline, 'r'))
+                rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
+            except:
+                pass
+        fitted_pipeline_id = min(rank_lst)[1]
         status = controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
         print("[INFO] Testing Done")
     else:

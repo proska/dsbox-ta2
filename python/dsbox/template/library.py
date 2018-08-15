@@ -191,7 +191,7 @@ class TemplateLibrary:
         # Tabular Classification
         # self.templates.append(TA1Classification_3)
         # self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(UU3TestTemplate)
+        # self.templates.append(UU3TestTemplate)
         # self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
@@ -206,10 +206,10 @@ class TemplateLibrary:
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(SRILinkPredictionTemplate)
-        self.templates.append(BBNAudioClassificationTemplate)
+        # self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        self.templates.append(CMUClusteringTemplate)
+        # self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
         # self.templates.append(JHUVertexNominationTemplate)
         # self.templates.append(JHUGraphMatchingTemplate)
