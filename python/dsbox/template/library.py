@@ -54,6 +54,8 @@ class TemplateLibrary:
             self._load_library()
 
         self.all_templates = {
+            "mega_regression_template": MegaRegressionTemplate,
+            "mega_classification_template": MegaClassificationTemplate,
             "default_classification_template": DefaultClassificationTemplate,
             "default_regression_template": DefaultRegressionTemplate,
             "classification_with_feature_selection": ClassificationWithSelection,
@@ -165,6 +167,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         # template that gives us the mean baseline as a result
+
         self.templates.append(SRIMeanBaselineTemplate)
 
         self.templates.append(DefaultTimeseriesRegressionTemplate)
@@ -224,7 +227,8 @@ class TemplateLibrary:
 
         self.templates.append(ClassificationWithSelection)
         self.templates.append(RegressionWithSelection)
-
+        self.templates.append(MegaClassificationTemplate)
+        self.templates.append(MegaRegressionTemplate)
         # dsbox all in one templates
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
@@ -274,6 +278,48 @@ class SemanticTypeDict(object):
 
 
 ################################################################################################################
+
+class MegaClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "mega_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "target",  # Name of the step generating the ground truth  
+            "steps": TemplateSteps.generate_X_Y() + TemplateSteps.preprocessing_steps()+ \
+            TemplateSteps.dimension_reduction_steps("classification") + TemplateSteps.classifiers()
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class MegaRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "mega_regression_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "target", 
+            "steps": TemplateSteps.generate_X_Y() + TemplateSteps.preprocessing_steps()+ \
+            TemplateSteps.dimension_reduction_steps("regression") + TemplateSteps.regressors()
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7  
 
 
 ################################################################################################################

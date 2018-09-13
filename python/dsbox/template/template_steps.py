@@ -4,6 +4,364 @@ class TemplateSteps:
     Some steps and parameters that are used for creating templates
     Returns a list of dicts with the most common steps
     '''
+
+    @staticmethod
+    def generate_X_Y():
+        return [
+            {
+                "name": "denormalize_step",
+                "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                "inputs": ["template_input"]
+            },
+            {
+                "name": "to_dataframe_step",
+                "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                "inputs": ["denormalize_step"]
+            },
+            {
+                "name": "extract_attribute_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": "target",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["to_dataframe_step"]
+            },
+        ]
+
+    @staticmethod
+    def preprocessing_steps():
+        return [
+            {
+                "name": "profiler_step",
+                "primitives": ["d3m.primitives.dsbox.Profiler"],
+                "inputs": ["extract_attribute_step"]
+            },
+            {
+                "name": "clean_step",
+                "primitives": [
+                    "d3m.primitives.dsbox.CleaningFeaturizer",
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["profiler_step"]
+            },
+            {
+                "name": "corex_step",
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.dsbox.CorexText",
+                        "hyperparameters":
+                            {
+                            }
+                    },
+                ],
+                "inputs": ["clean_step"]
+            },
+            {
+                "name": "encoder_step",
+                "primitives": [
+                    "d3m.primitives.dsbox.Encoder",
+                    "d3m.primitives.dsbox.DoNothing"
+                ],
+                "inputs": ["corex_step"]
+            },
+            {
+                "name": "impute_step",
+                "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                "inputs": ["encoder_step"]
+            },
+            {
+                "name": "scaler_step",
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+                        "hyperparameters": {}
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.IQRScaler",
+                        "hyperparameters": {}
+                    },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["impute_step"]
+            },
+            {
+                "name": "cast_step",  # turn columns to float
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]}
+                    },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["scaler_step"]
+            },
+            # {
+            #     "name": "cast_step",
+            #     "primitives": [
+            #         {
+            #             "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+            #             "hyperparameters":
+            #             {
+            #                 'n_components': [10, 15, 25]
+            #             }
+            #         },
+            #         "d3m.primitives.dsbox.DoNothing",
+            #     ],
+            #     "inputs": ["cast_1_step"]
+            # },
+        ]
+
+    @staticmethod
+    def dimension_reduction_steps(ptype):
+        import numpy as np
+        '''
+        dsbox feature selection steps for classification and regression, lead to feature selector steps
+        '''
+        if ptype == "regression":
+            return [
+                {
+                    "name": "data",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
+                            "hyperparameters": {
+                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                            "hyperparameters": {
+                                "score_func": ["f_regression"],
+                                "mode": ["percentile"],
+                                "param": [5, 7, 10, 15, 30, 50, 75],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                            "hyperparameters":
+                            {
+                                'n_components': [10, 15, 25]
+                            }
+                        },
+                        "d3m.primitives.dsbox.DoNothing"
+                    ],
+                    "inputs":["cast_step", "target"]
+                },
+            ]
+        else:
+            return [
+                {
+                    "name": "data",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
+                            "hyperparameters": {
+                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                            }
+                        },
+
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                            "hyperparameters": {
+                                "mode": ["percentile"],
+                                "param": [5, 7, 10, 15, 30, 50, 75],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                            "hyperparameters":
+                            {
+                                'n_components': [10, 15, 25]
+                            }
+                        },
+                        "d3m.primitives.dsbox.DoNothing"
+
+                    ],
+                    "inputs":["cast_step", "target"]
+                },
+            ]
+
+    @staticmethod
+    def classifiers():
+        import numpy as np
+        return [
+            {
+                "name": "model_step",
+                "runtime": {
+                    "cross_validation": 10,
+                    "stratified": True
+                },
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        "hyperparameters":
+                            {
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
+                        "hyperparameters":
+                            {
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
+                        "hyperparameters":
+                            {
+                                'max_depth': [2, 3, 4, 5],
+                                'n_estimators': [50, 60, 80, 100],
+                                'learning_rate': [0.1, 0.2, 0.4, 0.5],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKBernoulliNB",
+                        "hyperparameters":
+                            {
+                                'alpha': [0, .5, 1],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKGaussianNB",
+                        "hyperparameters":
+                            {
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                        "hyperparameters":
+                            {
+                                'alpha': [0, .5, 1]
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKSVC",
+                        "hyperparameters":
+                            {
+                                'C': [0.8, 1.0, 1.2],
+                                'kernel': ['rbf', 'poly'],
+                                'degree': [2, 3, 4],
+                            }
+                    },
+                    {
+                        "primitive":"d3m.primitives.sklearn_wrap.SKSGDClassifier",
+                        "hyperparameters":{
+                            "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
+                            "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
+                            "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
+                            "penalty": ['elasticnet', 'l2']
+                        }
+                    }, # from humanbase
+                ],
+                "inputs": ["data", "target"]
+            }
+
+        ]
+
+
+    @staticmethod
+    def regressors():
+        import numpy as np
+        return [
+            {
+                "name": "model_step",
+                "runtime": {
+                    "cross_validation": 10,
+                    "stratified": False
+                },
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
+                        "hyperparameters":
+                            {
+                                'max_depth': [2, 3, 4, 5],
+                                'n_estimators': [100, 130, 165, 200],
+                                'learning_rate': [0.1, 0.23, 0.34, 0.5],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKExtraTreesRegressor",
+                        "hyperparameters":
+                            {
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100]
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
+                        "hyperparameters":
+                            {
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100]
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKSVR",
+                        "hyperparameters":
+                            {
+                                'C': [0.8, 1.0, 1.2],
+                                'kernel': ['rbf', 'poly'],
+                                'degree': [2, 3, 4, 5],
+                            }
+                    },
+                    {
+                        "primitive":"d3m.primitives.sklearn_wrap.SKSGDRegressor",
+                        "hyperparameters":{
+                            "loss":['squared_loss', 'huber'],
+                            "alpha":[float(x) for x in np.logspace(-5, -1.004, 7)],#cannot reach 0.1
+                            "l1_ratio":[0.01,0.15, 0.3, 0.5, 0.6, 0.7, 0.9], #cannot reach 1
+                            "learning_rate": ['optimal', 'invscaling']
+                        }
+                    },
+                ],
+                "inputs": ["data", "target"]
+            }
+
+        ]
+
+
     @staticmethod
     def dsbox_generic_steps(data: str = "data", target: str = "target"):
         '''
@@ -54,6 +412,9 @@ class TemplateSteps:
                         "primitive": "d3m.primitives.dsbox.CorexText",
                         "hyperparameters":
                             {
+                                'n_hidden': [5, 10],
+                                'threshold': [0, 500],
+                                'n_grams': [1, 3],
                             }
                     },
                 ],
