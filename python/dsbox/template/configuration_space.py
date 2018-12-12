@@ -48,7 +48,9 @@ class ConfigurationSpace(typing.Generic[T]):
         """
         return ConfigurationPoint(self, values)
 
-
+    @abc.abstractmethod
+    def get_total_size(self) -> int:
+        pass
 
 class ConfigurationPoint(typing.Dict[DimensionName, T]):
     def __init__(self, space: ConfigurationSpace[T], values: typing.Dict[DimensionName, T]) -> None:
@@ -134,6 +136,12 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
 
         """
         return len(self.get_values(kw))
+
+    def get_total_size(self) -> int:
+        total = 1
+        for kw, l in self._dimension_values.items():
+            total *= len(l)
+        return total
 
     def __str__(self):
         """

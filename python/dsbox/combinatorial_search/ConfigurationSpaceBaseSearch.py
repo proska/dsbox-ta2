@@ -62,7 +62,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         self.configuration_space = configuration_space
         # self.dimension_ordering = configuration_space_list.get_dimension_search_ordering()
-
+        print(f"[INFO] conf space size is:{self.configuration_space.get_total_size()}")
         self.problem = problem
         self.train_dataset1 = train_dataset1
         self.train_dataset2 = train_dataset2

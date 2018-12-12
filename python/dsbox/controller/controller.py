@@ -398,7 +398,7 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=5)
 
         self._log_search_results(report=report)
 
@@ -912,13 +912,15 @@ class Controller:
             self._logger.info('Starting Search process')
 
             # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
+            # proc = Process(target=mplog.logged_call,
+            #                                args=(log_queue, self._run_RandomDimSearch,))
             proc = Process(target=mplog.logged_call,
-                                           args=(log_queue, self._run_RandomDimSearch,))
+                           args=(log_queue, self._run_ParallelBaseSearch,))
             proc.start()
 
-            self._logger.info('At the end.')
             # wait until process is done
             proc.join()
+            self._logger.info('At the end.')
 
             status = proc.exitcode
             print("[INFO] Search Status:")
