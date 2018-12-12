@@ -31,10 +31,14 @@ import common_primitives.utils as utils
 import d3m.metadata.base as mbase
 
 from dsbox.JobManager.cache import CandidateCache, PrimitivesCache
-
+import pymongo
+from pymongo import MongoClient
+import pickle
 _logger = logging.getLogger(__name__)
 
 MAX_DUMP_SIZE = 50  # 1000
+
+DF_LOG_LOC = "df_log"
 
 
 class Runtime:
@@ -198,8 +202,8 @@ class Runtime:
                 self.pipeline[n_step] = model
 
                 cache_reading_time = (time.time() - time_start)
-                print(f"[INFO] cache reading took {cache_reading_time} s and "
-                      f"fitting time took {fitting_time} s")
+                # print(f"[INFO] cache reading took {cache_reading_time} s and "
+                #       f"fitting time took {fitting_time} s")
                 cache_hit = True
             else:
 
@@ -340,7 +344,61 @@ class Runtime:
         produce_result = self._produce_step(model=model, step=step,
                                             primitive_arguments=primitive_arguments)
 
+        # Need to log the model, produce_params['input'], and produce_resutl
+
+        self._fastmeta_log(model, produce_params, produce_result)
+
         return produce_result, model
+
+    def _fastmeta_db2df(self, ds) -> DataFrame:
+        if isinstance(ds, Dataset):
+            if '0' not in ds:
+                tmp = ds.values()
+            df = ds['0']
+        elif isinstance(ds, DataFrame):
+            df = ds
+        else:
+            raise ValueError(f"INVALID DS TYPE! {type(ds)}")
+
+        assert isinstance(df, DataFrame), f"it is of type={type(df)}"
+        return df
+
+    def _fastmeta_log(self, model, produce_params, produce_result):
+        prim = str(model).replace('\n', '')
+
+        black_list = ["Classifier", "DatasetToDataFrame", "Denormalize",
+                      "ExtractColumnsBySemanticTypes", "Profiler", "CastToType"]
+        if any([b in prim for b in black_list]):
+            _logger.debug("blacklisted primitive found")
+            return
+
+        print("[FASTMETA] primitive: " + prim)
+        input_df = self._fastmeta_db2df(produce_params['inputs'])
+        output_df = self._fastmeta_db2df(produce_result)
+
+        input_df_name = str(hash(str(input_df.to_dict()) + prim)) + f".csv"
+        output_df_name = str(hash(str(output_df.to_dict()) + prim)) + f".csv"
+
+        if not os.path.exists(DF_LOG_LOC):
+            os.mkdir(DF_LOG_LOC)
+
+        # input_df.to_csv(os.path.join(DF_LOG_LOC, input_df_name))
+        # output_df.to_csv(os.path.join(DF_LOG_LOC, output_df_name))
+
+        client = MongoClient('localhost', 27017)
+
+        fm_db = client.fastmeta
+        table = fm_db.fastmeta_log
+
+        res_id = table.insert_one(
+            {
+                "input": pickle.dumps(input_df),
+                "primitive": prim,
+                "output": pickle.dumps(output_df),
+            }
+        )
+
+        # print(f"added to mongo {table.count()}, {res_id}")
 
     def _produce_step(self, model: base.PrimitiveBase, step: PrimitiveStep,
                       primitive_arguments: typing.Dict[str, typing.Any]):
