@@ -376,11 +376,11 @@ class Runtime:
         input_df = self._fastmeta_db2df(produce_params['inputs'])
         output_df = self._fastmeta_db2df(produce_result)
 
-        input_df_name = str(hash(str(input_df.to_dict()) + prim)) + f".csv"
-        output_df_name = str(hash(str(output_df.to_dict()) + prim)) + f".csv"
+        # input_df_name = str(hash(str(input_df.to_dict()) + prim)) + f".csv"
+        # output_df_name = str(hash(str(output_df.to_dict()) + prim)) + f".csv"
 
-        if not os.path.exists(DF_LOG_LOC):
-            os.mkdir(DF_LOG_LOC)
+        # if not os.path.exists(DF_LOG_LOC):
+        #     os.mkdir(DF_LOG_LOC)
 
         # input_df.to_csv(os.path.join(DF_LOG_LOC, input_df_name))
         # output_df.to_csv(os.path.join(DF_LOG_LOC, output_df_name))
