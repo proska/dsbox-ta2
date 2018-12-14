@@ -107,7 +107,7 @@ class DistributedJobManager:
 
         """
         print(f"[INFO] # ongoing_jobs {self.ongoing_jobs}")
-        (kwargs, results) = self.result_queue.get(block=block)
+        (kwargs, results) = self.result_queue.get(block=block, timeout=20*60)
         self.ongoing_jobs -= 1
         return (kwargs, results)
 

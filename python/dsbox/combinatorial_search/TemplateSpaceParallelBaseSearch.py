@@ -16,6 +16,8 @@ from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
 
+from multiprocessing import Queue
+
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -107,7 +109,10 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         while not self.job_manager.is_idle():
             # print("[INFO] Sleeping,", counter)
             print("[INFO] Main Process Sleeping:", counter)
-            (kwargs, report) = self.job_manager.pop_job(block=True)
+            try:
+                (kwargs, report) = self.job_manager.pop_job(block=True)
+            except Queue.Empty:
+                return
             self._add_report_to_candidate_cache(kwargs, report, template_name)
             counter += 1
         print("[INFO] No more pending job")
