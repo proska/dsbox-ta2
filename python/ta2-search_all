@@ -33,16 +33,18 @@ def main(args: typing.Dict) -> None:
     parPath = os.path.abspath(os.path.join(myPath, os.pardir))
 
     # delete the mongoDB table
-    os.system(f"python {parPath}/mongoRemove.py")
 
-    config_list = os.listdir(args.configuration_folder)[0:1]
-
-    def run_ta2_search(cf):
-        os.system(f"./{myPath}/ta2-search {cf}")
     with Pool() as p:
         p.map(run_ta2_search,
               iterable=config_list)
 
+    os.system(f"python {parPath}/mongoRemove.py")
+
+    config_list = os.listdir(args.configuration_folder)[0:1]
+
+def run_ta2_search(cf):
+    import os
+    os.system(f"./{myPath}/ta2-search {cf}")
 
 if __name__ == "__main__":
 
