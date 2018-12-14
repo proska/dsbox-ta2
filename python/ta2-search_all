@@ -48,7 +48,7 @@ def run_ta2_search(cf):
     filePath = os.path.realpath(__file__)
     myPath = os.path.abspath(os.path.join(filePath, os.pardir))
 
-    os.system(f"./{myPath}/ta2-search {cf}")
+    os.system(f".{myPath}/ta2-search {cf}")
 
 if __name__ == "__main__":
 
