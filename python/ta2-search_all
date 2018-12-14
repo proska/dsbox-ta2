@@ -34,13 +34,14 @@ def main(args: typing.Dict) -> None:
 
     # delete the mongoDB table
 
-    with Pool() as p:
-        p.map(run_ta2_search,
-              iterable=config_list)
 
     os.system(f"python {parPath}/mongoRemove.py")
 
     config_list = os.listdir(args.configuration_folder)[0:1]
+
+    with Pool() as p:
+        p.map(run_ta2_search,
+              iterable=config_list)
 
 def run_ta2_search(cf):
     import os
