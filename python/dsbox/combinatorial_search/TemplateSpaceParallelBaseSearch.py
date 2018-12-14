@@ -138,13 +138,14 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
     def _random_pipeline_sampling(self, search: ConfigurationSpaceBaseSearch, num_iter: int = 1) \
             -> None:
-        for _ in range(num_iter):
+        for round in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
             print("[INFO] Selecting Candidate: ", hash(str(candidate)))
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
                 assert report is not None and 'configuration' in report, \
                     'invalid candidate_cache line: {}->{}'.format(candidate, report)
+                round -= 1
                 continue
 
             try:
