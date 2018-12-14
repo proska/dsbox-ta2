@@ -42,7 +42,7 @@ def main(args: typing.Dict) -> None:
         for cf in os.listdir(args.configuration_folder)[0:1]
     ]
 
-    with Pool() as p:
+    with Pool(processes=2) as p:
         p.map(run_ta2_search,
               iterable=config_list)
 
