@@ -287,6 +287,7 @@ class Runtime:
             Arguments for set_training_data, fit, produce of the primitive for this step.
 
         """
+
         primitive: typing.Type[base.PrimitiveBase] = step.primitive
         primitive_hyperparams = \
         primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
@@ -328,29 +329,28 @@ class Runtime:
                 step.primitive_description['runtime'])
 
         model.set_training_data(**training_arguments)
-        model.fit()
+
+        try:
+            model.fit()
+        except:
+            # exc_info = sys.exc_info()
+            self._fastmeta_log(model, produce_params, None)
+            raise
+
         self.pipeline[n_step] = model
 
-# <<<<<<< HEAD
-#         if str(primitive) == 'd3m.primitives.dsbox.Encoder':
-#             total_columns = self._total_encoder_columns(model, produce_params['inputs'])
-#             if total_columns > 500:
-#                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
-
-#         produce_result = model.produce(**produce_params).value
-
-#         return produce_result, model
-# =======
         produce_result = self._produce_step(model=model, step=step,
                                             primitive_arguments=primitive_arguments)
 
-        # Need to log the model, produce_params['input'], and produce_resutl
-
+        # Need to log the model, produce_params['input'], and produce_result
         self._fastmeta_log(model, produce_params, produce_result)
 
         return produce_result, model
 
     def _fastmeta_db2df(self, ds) -> DataFrame:
+        if ds is None:
+            return None
+
         if isinstance(ds, Dataset):
             if '0' not in ds:
                 tmp = ds.values()
@@ -363,7 +363,7 @@ class Runtime:
         assert isinstance(df, DataFrame), f"it is of type={type(df)}"
         return df
 
-    def _fastmeta_log(self, model, produce_params, produce_result):
+    def _fastmeta_log(self, model, produce_params, produce_result=None):
         prim = str(model).replace('\n', '')
 
         black_list = ["Classifier", "DatasetToDataFrame", "Denormalize",
@@ -372,7 +372,7 @@ class Runtime:
             _logger.debug("blacklisted primitive found")
             return
 
-        print("[FASTMETA] primitive: " + prim)
+        # print("[FASTMETA] primitive: " + prim)
         input_df = self._fastmeta_db2df(produce_params['inputs'])
         output_df = self._fastmeta_db2df(produce_result)
 
