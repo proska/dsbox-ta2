@@ -35,7 +35,7 @@ def main(args: typing.Dict) -> None:
     # delete the mongoDB table
     os.system(f"python {parPath}/mongoRemove.py")
 
-    config_list = os.listdir(args.configuration_folder)
+    config_list = os.listdir(args.configuration_folder)[0:1]
 
     with Pool() as p:
         p.map(lambda cf: os.system(f"./{myPath}/ta2-search {cf}"),
