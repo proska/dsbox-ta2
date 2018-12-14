@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+"""
+Command Line Interface for running the DSBox TA2 Search
+"""
+import time
+import argparse
+import json
+import os
+import signal
+import subprocess
+import sys
+import traceback
+from pprint import pprint
+
+from multiprocessing import Process, Pool
+
+from importlib import reload
+import os
+import psutil
+# controller = Controller(development_mode=True)
+
+import getpass
+
+start_time = time.time()
+
+import typing
+
+def main(args: typing.Dict) -> None:
+
+    filePath = os.path.realpath(__file__)
+    myPath = os.path.abspath(os.path.join(filePath, os.pardir))
+    parPath = os.path.abspath(os.path.join(myPath, os.pardir))
+
+    # delete the mongoDB table
+    os.system(f"python {parPath}/mongoRemove.py")
+
+    config_list = os.listdir(args.configuration_folder)
+
+    with Pool() as p:
+        p.map(lambda cf: os.system(f"./{myPath}/ta2-search {cf}"),
+              iterable=config_list)
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        description='Run DSBox TA2 system on all the json configuration files')
+
+    parser.add_argument('configuration_folder',
+                        help='D3M TA2 json configuration file')
+
+    args = parser.parse_args()
+
+    main(args)
+
