@@ -26,6 +26,7 @@ start_time = time.time()
 
 import typing
 
+
 def main(args: typing.Dict) -> None:
 
     filePath = os.path.realpath(__file__)

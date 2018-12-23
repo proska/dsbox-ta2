@@ -343,7 +343,11 @@ class Runtime:
                                             primitive_arguments=primitive_arguments)
 
         # Need to log the model, produce_params['input'], and produce_result
-        self._fastmeta_log(model, produce_params, produce_result)
+        try:
+            self._fastmeta_log(model, produce_params, produce_result)
+        except ValueError:
+            print("ERROR occurred during fastmeta log!")
+            traceback.print_exc()
 
         return produce_result, model
 
