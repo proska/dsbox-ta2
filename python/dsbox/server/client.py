@@ -3,14 +3,15 @@ from dsbox_dev_setup import path_setup
 path_setup()
 
 import os
+import pprint
 import sys
 
 import argparse
 import grpc
-import sys
 import core_pb2_grpc as cpg
 import logging
 
+import google
 import problem_pb2
 import value_pb2
 from core_pb2 import HelloRequest
@@ -44,10 +45,19 @@ from problem_pb2 import ProblemTarget
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
-DATASET_BASE_PATH = '/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current'
+
+PRINT_REQUEST = False
+
+def get_dataset_path(use_docker_server):
+    if use_docker_server:
+        dataset_base_path = '/input/'
+    else:
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current'
+    print('Using dataset base path:', dataset_base_path)
+    return dataset_base_path
 
 class DatasetInfo():
-    def __init__(self, id, task_type, task_subtype, metric, target_index, resource_id, column_index, column_name):
+    def __init__(self, id, dataset_base_path, task_type, task_subtype, metric, target_index, resource_id, column_index, column_name):
         self.id = id
         self.task_type = task_type
         self.task_subtype = task_subtype
@@ -56,37 +66,41 @@ class DatasetInfo():
         self.resource_id = resource_id
         self.column_index = column_index
         self.column_name = column_name
-        self.dataset_path = os.path.join(DATASET_BASE_PATH, id)
-        self.dataset_uri = 'file://' + os.path.join(self.dataset_path, id + '_dataset', 'datasetDoc.json')
-        print(self.dataset_uri)
+        if dataset_base_path == '/input/':
+            dataset_path = dataset_base_path
+            self.dataset_uri = 'file://' + os.path.join(dataset_path, id + '_dataset', 'datasetDoc.json')
+        else:
+            dataset_path = os.path.join(dataset_base_path, id)
+            self.dataset_uri = 'file://' + os.path.join(dataset_path, id + '_dataset', 'datasetDoc.json')
+        # print(self.dataset_uri)
 
-        if not os.path.exists(self.dataset_path):
-            raise Exception('Not able to find dataset path: ' + self.dataset_path)
+        # if not os.path.exists(self.dataset_path):
+        #     raise Exception('Not able to find dataset path: ' + self.dataset_path)
 
-
-
-
-DATASETS_INFO = {}
-DATASETS_INFO['38_sick'] = DatasetInfo(
-    '38_sick',
-    problem_pb2.CLASSIFICATION, problem_pb2.BINARY, problem_pb2.F1_MACRO,
-    30, '0', 30, 'Class')
-DATASETS_INFO['185_baseball'] = DatasetInfo(
-    '185_baseball',
-    problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
-    0, '0', 18, 'Hall_of_Fame')
-DATASETS_INFO['LL0_1100_popularkids'] = DatasetInfo(
-    'LL0_1100_popularkids',
-    problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
-    0, '0', 7, 'Goals')
-DATASETS_INFO['59_umls'] = DatasetInfo(
-    '59_umls',
-    problem_pb2.LINK_PREDICTION, problem_pb2.NONE, problem_pb2.ACCURACY,
-    0, '1', 4, 'linkExists')
-DATASETS_INFO['22_handgeometry'] = DatasetInfo(
-    '22_handgeometry',
-    problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
-    0, '1', 2, 'WRISTBREADTH')
+    @classmethod
+    def generate_info_dict(cls, dataset_base_path):
+        datasets_info_dict = {}
+        datasets_info_dict['38_sick'] = DatasetInfo(
+            '38_sick', dataset_base_path,
+            problem_pb2.CLASSIFICATION, problem_pb2.BINARY, problem_pb2.F1_MACRO,
+            30, '0', 30, 'Class')
+        datasets_info_dict['185_baseball'] = DatasetInfo(
+            '185_baseball', dataset_base_path,
+            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
+            0, '0', 18, 'Hall_of_Fame')
+        datasets_info_dict['LL0_1100_popularkids'] = DatasetInfo(
+            'LL0_1100_popularkids', dataset_base_path,
+            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
+            0, '0', 7, 'Goals')
+        datasets_info_dict['59_umls'] = DatasetInfo(
+            '59_umls', dataset_base_path,
+            problem_pb2.LINK_PREDICTION, problem_pb2.NONE, problem_pb2.ACCURACY,
+            0, '1', 4, 'linkExists')
+        datasets_info_dict['22_handgeometry'] = DatasetInfo(
+            '22_handgeometry', dataset_base_path,
+            problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
+            0, '1', 2, 'WRISTBREADTH')
+        return datasets_info_dict
 
 
 '''
@@ -110,6 +124,9 @@ class Client(object):
         stub = cpg.CoreStub(channel)
 
         parser = argparse.ArgumentParser(description='Dummy TA3 client')
+        parser.add_argument('--docker', action='store_true',
+                            help='The dataset path deepnds on if server is running on docker or not')
+
         parser.add_argument('--sick', action='store_const', const='38_sick', dest='dataset')
         parser.add_argument('--kids', action='store_const', const='LL0_1100_popularkids', dest='dataset')
         parser.add_argument('--baseball', action='store_const', const='185_baseball', dest='dataset')
@@ -122,8 +139,12 @@ class Client(object):
         parser.add_argument('--end-search')
         args = parser.parse_args()
 
+        dataset_path = get_dataset_path(args.docker)
+        dataset_info_dict = DatasetInfo.generate_info_dict(dataset_path)
         dataset_name = args.dataset if args.dataset else '38_sick'
-        dataset_info = DATASETS_INFO[dataset_name]
+        dataset_info = dataset_info_dict[dataset_name]
+
+        print('dataset: ', dataset_info.dataset_uri)
 
         if args.basic:
             # Make a set of calls that follow the basic pipeline search
@@ -219,14 +240,14 @@ class Client(object):
     '''
     def searchSolutions(self, stub, dataset_info):
         _logger.info("Calling Search Solutions:")
-        reply = stub.SearchSolutions(
-            SearchSolutionsRequest(
-                user_agent="Test Client",
-                version="2018.7.7",
-                time_bound=10, # minutes
-                priority=0,
-                allowed_value_types=[value_pb2.RAW],
-                problem=ProblemDescription(problem=Problem(
+        request = SearchSolutionsRequest(
+            user_agent="Test Client",
+            version="2018.7.7",
+            time_bound=2, # minutes
+            priority=0,
+            allowed_value_types=[value_pb2.RAW],
+            problem=ProblemDescription(
+                problem=Problem(
                     id=dataset_info.id,
                     version="3.1.2",
                     name=dataset_info.id,
@@ -238,20 +259,22 @@ class Client(object):
                             metric=dataset_info.metric,
                         )]
                     ),
-                    inputs=[ProblemInput(
-                        dataset_id=dataset_info.id,
-                        targets=[
-                            ProblemTarget(
-                                target_index=dataset_info.target_index,
-                                resource_id=dataset_info.resource_id,
-                                column_index=dataset_info.column_index,
-                                column_name=dataset_info.column_name
-                            )
+                inputs=[ProblemInput(
+                    dataset_id=dataset_info.id,
+                    targets=[
+                        ProblemTarget(
+                            target_index=dataset_info.target_index,
+                            resource_id=dataset_info.resource_id,
+                            column_index=dataset_info.column_index,
+                            column_name=dataset_info.column_name
+                        )
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-                inputs=[Value(dataset_uri=dataset_info.dataset_uri)]
-            ))
+            inputs=[Value(dataset_uri=dataset_info.dataset_uri)]
+        )
+        print_request(request)
+        reply = stub.SearchSolutions(request)
         log_msg(reply)
         return reply
 
@@ -262,9 +285,11 @@ class Client(object):
     '''
     def processSearchSolutionsResultsResponses(self, stub, search_id):
         _logger.info("Processing Search Solutions Result Responses:")
-        reply = stub.GetSearchSolutionsResults(GetSearchSolutionsResultsRequest(
+        request = GetSearchSolutionsResultsRequest(
             search_id=search_id
-        ))
+        )
+        print_request(request)
+        reply = stub.GetSearchSolutionsResults(request)
 
         results = []
         for searchSolutionsResultsResponse in reply:
@@ -280,7 +305,7 @@ class Client(object):
     def scoreSolutionRequest(self, stub, solution_id, dataset_info):
         _logger.info("Calling Score Solution Request:")
 
-        reply = stub.ScoreSolution(ScoreSolutionRequest(
+        request = ScoreSolutionRequest(
             solution_id=solution_id,
             inputs=[ Value(dataset_uri=dataset_info.dataset_uri)],
             performance_metrics=[ProblemPerformanceMetric(
@@ -288,7 +313,9 @@ class Client(object):
             )],
             users=[SolutionRunUser()], # Optional so pushing for now
             configuration=None # For future implementation
-        ))
+        )
+        print_request(request)
+        reply = stub.ScoreSolution(request)
         return reply
 
 
@@ -299,9 +326,11 @@ class Client(object):
     def getScoreSolutionResults(self, stub, request_id):
         _logger.info("Calling Score Solution Results with request_id: " + request_id)
 
-        reply = stub.GetScoreSolutionResults(GetScoreSolutionResultsRequest(
+        request = GetScoreSolutionResultsRequest(
             request_id=request_id
-        ))
+        )
+        print_request(request)
+        reply = stub.GetScoreSolutionResults(request)
 
         results = []
 
@@ -315,12 +344,16 @@ class Client(object):
     def endSearchSolutions(self, stub, search_id):
         _logger.info("Calling EndSearchSolutions with search_id: " + search_id)
 
-        stub.EndSearchSolutions(EndSearchSolutionsRequest(
+        request = EndSearchSolutionsRequest(
             search_id=search_id
-        ))
+        )
+        print_request(request)
+        stub.EndSearchSolutions(request)
 
     def describeSolution(self, stub, solution_id):
         _logger.info("Calling DescribeSolution with solution_id: " + solution_id)
+        request = DescribeSolutionRequest(solution_id=solution_id)
+        print_request(request)
         reply = stub.DescribeSolution(DescribeSolutionRequest(
             solution_id=solution_id
         ))
@@ -329,44 +362,74 @@ class Client(object):
 
     def fitSolution(self, stub, solution_id, dataset_info):
         _logger.info("Calling FitSolution with solution_id: " + solution_id)
-        reply = stub.FitSolution(FitSolutionRequest(
+
+        request = FitSolutionRequest(
             solution_id=solution_id,
             inputs=[Value(dataset_uri=dataset_info.dataset_uri)],
             # expose_outputs = ['steps.7.produce'],
             expose_outputs = ['outputs.0'],
             expose_value_types = [value_pb2.CSV_URI]
-        ))
+        )
+        print_request(request)
+        reply = stub.FitSolution(request)
         log_msg(reply)
         return reply
 
     def getFitSolutionResults(self, stub, request_id):
         _logger.info("Calling GetFitSolutionResults with request_id: " + request_id)
-        reply = stub.GetFitSolutionResults(GetFitSolutionResultsRequest(
+        request = GetFitSolutionResultsRequest(
             request_id=request_id
-        ))
+        )
+        print_request(request)
+        reply = stub.GetFitSolutionResults(request)
         log_msg(reply)
         return reply
 
     def produceSolution(self, stub, solution_id, dataset_info):
         _logger.info("Calling ProduceSolution with solution_id: " + solution_id)
-        reply = stub.ProduceSolution(ProduceSolutionRequest(
+
+        request = ProduceSolutionRequest(
             fitted_solution_id=solution_id,
             inputs=[Value(dataset_uri=dataset_info.dataset_uri)],
             # expose_outputs = ['steps.7.produce'],
             expose_outputs = ['outputs.0'],
             expose_value_types = [value_pb2.CSV_URI]
-        ))
+        )
+        print_request(request)
+        reply = stub.ProduceSolution(request)
         log_msg(reply)
         return reply
 
     def getProduceSolutionResults(self, stub, request_id):
         _logger.info("Calling GetProduceSolutionResults with request_id: " + request_id)
-        reply = stub.GetProduceSolutionResults(GetProduceSolutionResultsRequest(
+        request = GetProduceSolutionResultsRequest(
             request_id=request_id
-        ))
+        )
+        print_request(request)
+        reply = stub.GetProduceSolutionResults(request)
         log_msg(reply)
         return reply
 
+def to_dict(msg):
+    '''
+    convert request/reply to dict
+    '''
+
+    print('====', type(msg).__name__)
+    fields = {}
+    for field_descriptor, value in msg.ListFields():
+        if callable(getattr(value, 'ListFields', None)):
+            fields[field_descriptor.name] = to_dict(value)
+        elif type(value) is google.protobuf.pyext._message.RepeatedCompositeContainer:
+            fields[field_descriptor.name] = [to_dict(x) for x in value]
+        else:
+            fields[field_descriptor.name] = value
+    result = { type(msg).__name__: fields}
+    return result
+
+def print_request(request):
+    if PRINT_REQUEST:
+        pprint.pprint(to_dict(request))
 
 '''
 Handy method for generating pipeline trace logs
