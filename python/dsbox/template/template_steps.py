@@ -676,6 +676,154 @@ class TemplateSteps:
                 }
             ]
 
+
+    @staticmethod
+    def data_augmentation_steps(dataset_name):
+        return [
+            {
+                "name": "denormalize_step",
+                "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                "inputs": ["template_input"]
+            },
+            {
+                "name": "to_dataframe_step",
+                "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                "inputs": ["denormalize_step"]
+            },
+            {
+                "name": "datamart_query_step",
+                "primitives": ["d3m.primitives.dsbox.Denormalize"], # fixme
+                "inputs": ["to_dataframe_step"]
+            }, 
+            {
+                "name": "datamart_augmentation_step",
+                "primitives": ["d3m.primitives.dsbox.Denormalize"], #fixme
+                "inputs": ["datamart_query_step"]
+            }, 
+            {
+                "name": "extract_attribute_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',
+                                ),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["datamart_augmentation_step"]
+            },
+            {
+                "name": "profiler_step",
+                "primitives": ["d3m.primitives.dsbox.Profiler"],
+                "inputs": ["extract_attribute_step"]
+            },
+            {
+                "name": "clean_step",
+                "primitives": [
+                    # "d3m.primitives.dsbox.CleaningFeaturizer",
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["profiler_step"]
+            },
+            {
+                "name": "corex_step",
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.dsbox.CorexText",
+                        "hyperparameters":
+                            {
+                            }
+                    },
+                ],
+                "inputs": ["clean_step"]
+            },
+            {
+                "name": "encoder_step",
+                "primitives": [
+                    "d3m.primitives.dsbox.Encoder",
+                    "d3m.primitives.dsbox.DoNothing"
+                ],
+                "inputs": ["corex_step"]
+            },
+            {
+                "name": "impute_step",
+                "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                "inputs": ["encoder_step"]
+            },
+            {
+                "name": "scaler_step",
+                "primitives": [
+                    # {
+                    #     "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+                    #     "hyperparameters": 
+                    #     {
+                    #         'use_semantic_types':[True],
+                    #         'return_result':['new'],
+                    #         'add_index_columns':[True],
+                    #     }
+                    # },
+                    {
+                        "primitive": "d3m.primitives.dsbox.IQRScaler",
+                        "hyperparameters": {}
+                    },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["impute_step"]
+            },
+            {
+                "name": "cast_1_step",  # turn columns to float
+                "primitives": [
+                    # {
+                    #     "primitive": "d3m.primitives.data.CastToType",
+                    #     "hyperparameters": 
+                    #                     {
+                    #                     "type_to_cast": ["float"],
+                    #                     "exclude_columns": (0,),
+                    #                     "use_columns": (0,),
+                    #                     }
+                    # },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["scaler_step"]
+            },
+            {
+                "name": data,
+                "primitives": [
+                    # {
+                    #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                    #     "hyperparameters":
+                    #     { 
+                    #         'use_semantic_types':[True],
+                    #         'return_result':['new'],
+                    #         'add_index_columns':[True],
+                    #         'n_components': [10, 15, 25]
+                    #     }
+                    # },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                "inputs": ["cast_1_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["datamart_augmentation_step"]
+            },
+        ]
+
     @staticmethod
     def class_hyperparameter_generator(primitive_name, parameter_name, definition):
         from d3m import index
