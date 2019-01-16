@@ -49,6 +49,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset: Dataset,
                  output_directory: str, log_dir: str,) -> None:
 
         self.template_list = template_list
@@ -64,6 +65,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
+                    ensemble_tuning_dataset = ensemble_tuning_dataset,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)
@@ -76,6 +78,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # setup the execution history to store the results of each template separately
         self._setup_exec_history(template_list=self.template_list)
 
+        self.ensemble_tuning_result = {}
         # load libraries with a dummy evaluation
         # try:
         #     self.confSpaceBaseSearch[-1].dummy_evaluate()
@@ -130,15 +133,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         """
         candidate = kwargs_bundle['kwargs']['args'][0]
         template_name = kwargs_bundle['target_obj'].template.template['name']
-        try:
-            if report is None:
-                raise ValueError("Search Failed on candidate")
+        if report is not None:
             report['template_name'] = template_name
             _logger.info("new report: {}".format(report))
             self.history.update(report, template_name=template_name)
             self.cacheManager.candidate_cache.push(report)
-        except ValueError:
-            traceback.print_exc()
+        else:
             _logger.warning(traceback.format_exc())
             print("[INFO] Search Failed on candidate ", hash(str(candidate)))
             self.history.update_none(fail_report=None, template_name=template_name)

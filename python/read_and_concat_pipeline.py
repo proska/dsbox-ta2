@@ -1,5 +1,9 @@
 import sys
+<<<<<<< HEAD
 # sys.path.append('/Users/muxin/Desktop/ISI/dsbox_env/dsbox-ta2/python')
+=======
+sys.path.append('/Users/muxin/Desktop/ISI/dsbox_env/dsbox-ta2/python')
+>>>>>>> 5f1af5c4acdcbfbb4463d59209801944b8ba48f5
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 # from dsbox.datapostprocessing.vertical_concat import VerticalConcat, EnsembleVoting
