@@ -12,7 +12,7 @@ from dsbox.combinatorial_search.search_utils import get_target_columns
 from d3m.metadata.problem import parse_problem_description, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
-from d3m.metadata.base import ALL_ELEMENTS, Metadata
+from d3m.metadata.base import ALL_ELEMENTS, Metadata, Context, ArgumentType
 from d3m import index as d3m_index
 
 
@@ -73,7 +73,7 @@ class EnsembleTuningPipeline:
                 ))
 
             self.task_type = self.problem['problem']['task_type']
-            self.dataset_id = self.problem['problem']['id']
+            self.dataset_id = self.problem['id']
         else:
             self.dataset_id = ""
         self._logger = logging.getLogger(__name__)
@@ -92,23 +92,33 @@ class EnsembleTuningPipeline:
             raise ValueError("Only 1 candidate pipeline id found, unable to generate the ensemble pipeline.")
 
         step_outputs = []
-        self.voting_pipeline = pipeline_module.Pipeline('voting', context=pipeline_module.PipelineContext.TESTING)
+        self.voting_pipeline = pipeline_module.Pipeline('ensemble_tuning_pipeline', context=Context.TESTING)
         pipeline_input = self.voting_pipeline.add_input(name='inputs')
+
+
+
+
+        # need to change here!!!
+
+
+
+
+
 
         for each_pid in self.pids:
             each_dsbox_fitted  = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
             each_runtime = each_dsbox_fitted.runtime
-            each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
+            each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=Context.TESTING)
             each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
             each_step.add_input(pipeline_input)
             self.voting_pipeline.add_step(each_step)
             step_outputs.append(each_step.add_output('output'))
 
-        concat_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.data_preprocessing.vertical_concat.DSBOX",
-            "id": "dsbox-vertical-concat",
-            "version": "1.3.0",
-            "name": "DSBox vertically concat"})
+
+
+
+        concat_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive(
+            "d3m.primitives.data_preprocessing.vertical_concat.DSBOX").metadata.query()))
 
         for i in range(len(self.pids) - 1):
             each_concact_step = copy.deepcopy(concat_step)
@@ -178,6 +188,10 @@ class EnsembleTuningPipeline:
         self._logger.info("Save ensemble pipeline successfully")
 
     def generate_candidate_pids(self) -> None:
+        """
+            function used to generate the candidates pipeline ids
+            These ids will be stored in self.pids in the form of a list
+        """
         if self.pids:
             self._logger.warning("There already exist candidate pipeline ids")
 
@@ -273,6 +287,11 @@ class EnsembleTuningPipeline:
                     pid_each = pipeline_ids[each]
                     if pid_each not in self.pids:
                         self.pids.append(pid_each)
+
+        # way 3: do not filter any methods, just put all of there in the candidates
+        elif self.candidate_choose_method == 'pass':
+            ensemble_predicts = self.report['report']['ensemble_dataset_predictions']
+            self.pids = list(ensemble_predicts.keys())
 
 class HorizontalTuningPipeline(EnsembleTuningPipeline):
     def __init__(self, pipeline_files_dir: str, log_dir: str,

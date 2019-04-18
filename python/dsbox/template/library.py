@@ -4,7 +4,7 @@ import numpy as np
 import typing
 
 from d3m import index
-from d3m.container.dataset import SEMANTIC_TYPES
+from .utils import SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
 from dsbox.template.template import DSBoxTemplate
 from .template_steps import TemplateSteps
@@ -54,7 +54,6 @@ class TemplateLibrary:
             "dsbox_classification_template": dsboxClassificationTemplate,
             "dsbox_regression_template": dsboxRegressionTemplate,
             "CMU_Clustering_Template": CMUClusteringTemplate,
-            #"Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
                 DefaultImageProcessingRegressionTemplate,
             "TA1_classification_template_1": TA1ClassificationTemplate1,
@@ -149,6 +148,8 @@ class TemplateLibrary:
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
+
+        
         self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
@@ -177,9 +178,9 @@ class TemplateLibrary:
         self.templates.append(DefaultObjectDetectionTemplate)
         self.templates.append(DefaultVideoClassificationTemplate)
         # self.templates.append(DefaultImageClassificationWithCNNTemplate)
-
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
+        
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         self.templates.append(DefaultTimeseriesRegressionTemplate)
 
@@ -265,12 +266,12 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'use_semantic_types': [True],
                                             'return_result': ['new'],
                                             'add_index_columns': [True],
-                                            'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
+                                            # 'bootstrap': [True, False],
+                                            # 'max_depth': [15, 30, None],
+                                            # 'min_samples_leaf': [1, 2, 4],
+                                            # 'min_samples_split': [2, 5, 10],
+                                            # 'max_features': ['auto', 'sqrt'],
+                                            # 'n_estimators': [10, 50, 100],
                                          }
                                  },
                                  {
@@ -282,11 +283,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'return_result': ['new'],
                                             'add_index_columns': [True],
                                             'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
+                                            # 'max_depth': [15, 30, None],
+                                            # 'min_samples_leaf': [1, 2, 4],
+                                            # 'min_samples_split': [2, 5, 10],
+                                            # 'max_features': ['auto', 'sqrt'],
+                                            # 'n_estimators': [10, 50, 100],
                                          }
                                  },
                                  {
@@ -297,11 +298,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'use_semantic_types': [True],
                                             'return_result': ['new'],
                                             'add_index_columns': [True],
-                                            'max_depth': [2, 3, 4, 5],
-                                            'n_estimators': [50, 60, 80, 100],
-                                            'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                            'min_samples_split': [2, 3],
-                                            'min_samples_leaf': [1, 2],
+                                            # 'max_depth': [2, 3, 4, 5],
+                                            # 'n_estimators': [50, 60, 80, 100],
+                                            # 'learning_rate': [0.1, 0.2, 0.4, 0.5],
+                                            # 'min_samples_split': [2, 3],
+                                            # 'min_samples_leaf': [1, 2],
                                          }
                                  },
                              ],
@@ -2219,7 +2220,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
@@ -2315,7 +2316,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]

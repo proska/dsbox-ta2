@@ -15,6 +15,7 @@ import pprint
 import pickle
 
 from d3m.metadata.problem import TaskType
+from d3m.container import List
 from d3m.container.pandas import DataFrame as d3m_DataFrame
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.exceptions import InvalidArgumentValueError
@@ -93,7 +94,7 @@ class Controller:
         # !!! hard code here
         # TODO: add if statement to determine it
         # Turn off for now
-        self.do_ensemble_tune = False
+        self.do_ensemble_tune = True
         self.do_horizontal_tune = False
 
         self.report_ensemble = dict()
@@ -292,7 +293,7 @@ class Controller:
         self._logger.info('Top level output directory: %s' % self.config.output_dir)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
-        # self.report_ensemble['report'] = report
+        self.report_ensemble['report'] = report
         candidate = report['configuration']
         print("-" * 20)
         print("[INFO] Final Search Results:")
@@ -436,8 +437,8 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
-        # report = self._search_method.search(num_iter=50)
-        report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
+        report = self._search_method.search(num_iter=50)
+        # report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -615,20 +616,26 @@ class Controller:
             selector = (self.problem_info["res_id"], ALL_ELEMENTS, each)
             each_column_meta = self.all_dataset.metadata.query(selector)
             if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
-            "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
+                "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
                 can_query_columns.append(each_column_meta['name'])
 
         if len(can_query_columns) == 0:
             self._logger.warn("No columns can be augment!")
             return self.all_dataset
 
+        # from common_primitives.datamart_search import Hyperparams as hyper_datamart_search, DataMartSearchPrimitive
+        from dsbox.datapreprocessing.cleaner.datamart_download import DatamartDownload ,DatamartDownloadHyperparams
         from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe ,QueryFromDataFrameHyperparams
         query_hyperparams = QueryFromDataFrameHyperparams.defaults()
+        # query_hyperparams = hyper_datamart_search.defaults()
 
-        # import pdb
-        # pdb.set_trace()
-        for each_column in can_query_columns:
-            # TODO: now we only use the first results!!! Consider do multiple test with different query
+        import pdb
+        pdb.set_trace()
+        augmented_results = []
+        max_augmented_columns_number = -1
+        augment_choice = 0
+        for i, each_column in enumerate(can_query_columns):
+            # try to augment with each column name
             query_json = {
                 "dataset": {
                     "about": query_about
@@ -654,17 +661,32 @@ class Controller:
                 #     }
                 # ]
             }
-
             query_hyperparams = query_hyperparams.replace({"query":query_json})
             query_primitive = QueryFromDataframe(hyperparams = query_hyperparams)
-            result = query_primitive.produce(inputs = self.all_dataset)
+            # query_hyperparams = query_hyperparams.replace({"url":"https://isi-datamart.edu", "query":query_json})
+            # query_primitive = DataMartSearchPrimitive(hyperparams = query_hyperparams)
+            searched_result = query_primitive.produce(inputs = self.all_dataset)
             # end query part
 
-            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
-            augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
-            augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-            res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
+            searched_augment_candidates = searched_result.value
+            searched_augment_candidates.sort(key=lambda x: x.score, reverse=True)
+            import pdb
+            pdb.set_trace()
+            
+            for each_augment_dataset in searched_augment_candidates:
+                try:
+                    augment_hyperparams = DatamartDownloadHyperparams.defaults()
+                    augment_hyperparams = augment_hyperparams.replace({"dataset_id":each_augment_dataset._id}) # "joining_columns":([[2]],[[3]])
+                    augment_primitive = DatamartDownload(hyperparams = augment_hyperparams)
+                    res = augment_primitive.produce(inputs = self.all_dataset)
+                    self._logger.info("augmenting with id = " + each_augment_dataset._id + ", column_name = " + each_column + "succeeded")
+                    augmented_shape = res.value[self.problem_info["res_id"]].shape
+                    self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
+                    augmented_results.append(res.value)
+                except:
+                    print("augmenting with id = " + each_augment_dataset._id + " failed")
+
+
             self.extra_primitive.add("data_augment")
 
             # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
@@ -672,10 +694,21 @@ class Controller:
             self.dump_primitive(augment_primitive, "datamart_augmentation")
             # return the augmented dataset
             original_shape = self.all_dataset[self.problem_info["res_id"]].shape
-            augmented_shape = res.value[self.problem_info["res_id"]].shape
-            self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
-            self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
-            return res.value
+                
+                # self._logger.info("Datamart augment  + " succeeded!")
+                # self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+
+                # if max_augmented_columns_number < augmented_shape[1]:
+                #     max_augmented_columns_number = augmented_shape[1]
+                #     augment_choice = i
+
+        if augmented_results == -1:
+            self._logger.info("All datamart augment column keywords failed, will use original dataset")
+            return self.all_dataset
+
+        else:
+            self._logger.info("Final choose: use augmented dataset with column name = ",can_query_columns[augmented_column_numbers])
+            return augmented_results[augment_choice]
 
             # # used for join
             # for each_result in result:
@@ -963,6 +996,8 @@ class Controller:
 
         :return: None
         """
+        import pdb
+        pdb.set_trace()
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
 
@@ -971,9 +1006,10 @@ class Controller:
 
         else:
             try:
+
                 pp = EnsembleTuningPipeline(pipeline_files_dir=self.config.output_dir, log_dir=self.config.log_dir,
                                             pids=None, candidate_choose_method=self.ensemble_voting_candidate_choose_method,
-                                            report=ensemble_tuning_report, problem=self.problem,
+                                            report=ensemble_tuning_report, problem=self.config.problem,
                                             test_dataset=self.test_dataset1, train_dataset=self.train_dataset1,
                                             problem_doc_metadata=self.config.problem_metadata)
                 pp.generate_candidate_pids()

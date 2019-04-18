@@ -740,6 +740,8 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                                               prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
                     })
         except Exception:
+            import pdb
+            pdb.set_trace()
             raise NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
 
