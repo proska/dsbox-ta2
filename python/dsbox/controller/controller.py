@@ -23,7 +23,8 @@ from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
-from dsbox.template.library import TemplateLibrary
+# from dsbox.template.library import TemplateLibrary
+from dsbox.template.template_demo import TemplateLibrary # demo library
 from dsbox.controller.config import DsboxConfig
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
