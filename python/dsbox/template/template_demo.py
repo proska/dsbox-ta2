@@ -13,6 +13,7 @@ from .template_steps import TemplateSteps
 
 _logger = logging.getLogger(__name__)
 
+
 class TemplateLibrary:
     """
     Library of template pipelines
@@ -107,72 +108,54 @@ class SampleClassificationTemplate(DSBoxTemplate):
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": {"text", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.dsbox_generic_steps() +
-                     TemplateSteps.dsbox_feature_selector("classification",
-                                                          first_input='data',
-                                                          second_input='target') +
-                     [
-                         {
-                             "name": "model_step",
-                             "runtime": {
-                                 "cross_validation": 10,
-                                 "stratified": True
-                             },
-                             "primitives": [
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.random_forest.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
-                                         }
-                                 },
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.extra_trees.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
-                                         }
-                                 },
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.gradient_boosting.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'max_depth': [2, 3, 4, 5],
-                                            'n_estimators': [50, 60, 80, 100],
-                                            'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                            'min_samples_split': [2, 3],
-                                            'min_samples_leaf': [1, 2],
-                                         }
-                                 },
-                             ],
-                             "inputs": ["feature_selector_step", "target"]
-                         }
-                     ]
+            "steps": TemplateSteps.dsbox_generic_steps() + [
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'max_depth': [2, 5],
+                                'n_estimators': [50, 100],
+                                'learning_rate': [0.1, 0.3],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
+                            "hyperparameters":
+                            {
+                                'alpha': [0, .5, 1],
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                    ],
+                    "inputs": ["data", "target"]
+                }
+            ]
         }
 
 class NoCleaningClassificationTemplate(DSBoxTemplate):
@@ -185,70 +168,52 @@ class NoCleaningClassificationTemplate(DSBoxTemplate):
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": {"text", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.dsbox_steps_no_cleaning() +
-                     TemplateSteps.dsbox_feature_selector("classification",
-                                                          first_input='data',
-                                                          second_input='target') +
-                     [
-                         {
-                             "name": "model_step",
-                             "runtime": {
-                                 "cross_validation": 10,
-                                 "stratified": True
-                             },
-                             "primitives": [
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.random_forest.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
-                                         }
-                                 },
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.extra_trees.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'bootstrap': [True, False],
-                                            'max_depth': [15, 30, None],
-                                            'min_samples_leaf': [1, 2, 4],
-                                            'min_samples_split': [2, 5, 10],
-                                            'max_features': ['auto', 'sqrt'],
-                                            'n_estimators': [10, 50, 100],
-                                         }
-                                 },
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.gradient_boosting.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types': [True],
-                                            'return_result': ['new'],
-                                            'add_index_columns': [True],
-                                            'max_depth': [2, 3, 4, 5],
-                                            'n_estimators': [50, 60, 80, 100],
-                                            'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                            'min_samples_split': [2, 3],
-                                            'min_samples_leaf': [1, 2],
-                                         }
-                                 },
-                             ],
-                             "inputs": ["feature_selector_step", "target"]
-                         }
-                     ]
+            "steps": TemplateSteps.dsbox_steps_no_cleaning() + [
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'max_depth': [2, 5],
+                                'n_estimators': [50, 100],
+                                'learning_rate': [0.1, 0.3],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
+                            "hyperparameters":
+                            {
+                                'alpha': [0, .5, 1],
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
+                        },
+                    ],
+                    "inputs": ["data", "target"]
+                }
+            ]
         }
