@@ -12,17 +12,16 @@ import traceback
 import typing
 import copy
 import pandas as pd  # type: ignore
-import multiprocessing
-from d3m import exceptions
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
 
+from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
-from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
-from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
+# from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
+# from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.controller.config import DsboxConfig
 from dsbox.schema import ColumnRole, SpecializedProblem
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
@@ -103,7 +102,7 @@ class Controller:
             self.template_library = TemplateLibrary(run_single_template=run_single_template_name)
         else:
             self.template_library = TemplateLibrary()
-        self.template: typing.List[DSBoxTemplate] = []
+        self.template_list: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
 
         # Primitives
@@ -182,8 +181,9 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
-            if 'LL0_acled' in dataset['dataset_id']:
-                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+            # kyao 2019-7-24:
+            # if 'LL0_acled' in dataset['dataset_id']:
+            #     self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
 
             if 'privileged_data' not in dataset:
                 continue
@@ -338,119 +338,105 @@ class Controller:
             (directory / rank_file).with_suffix('.json').unlink()
             (directory / rank_file).with_suffix('.rank').unlink()
 
-    def _process_pipeline_submission_old(self) -> None:
-        self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
+    # def _process_pipeline_submission_old(self) -> None:
+    #     self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
 
-        # Get list of (rank, pipeline) pairs
-        pipeline_files = os.listdir(self.config.pipelines_scored_dir)
-        ranked_list = []
-        for filename in pipeline_files:
-            if filename.endswith("json"):
-                filepath = os.path.join(self.config.pipelines_scored_dir, filename)
-                with open(filepath) as f:
-                    pipeline = json.load(f)
-                    try:
-                        if 'pipeline_rank' in pipeline:
-                            ranked_list.append((pipeline['pipeline_rank'], filename))
-                        else:
-                            # Move pipelines without scores to pipelines_searched directory
-                            self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
-                            shutil.move(filepath, self.config.pipelines_searched_dir)
-                    except:
-                        self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
-        if not ranked_list:
-            self._logger.warning('No ranked pipelines found.')
-            return
+    #     # Get list of (rank, pipeline) pairs
+    #     pipeline_files = os.listdir(self.config.pipelines_scored_dir)
+    #     ranked_list = []
+    #     for filename in pipeline_files:
+    #         if filename.endswith("json"):
+    #             filepath = os.path.join(self.config.pipelines_scored_dir, filename)
+    #             with open(filepath) as f:
+    #                 pipeline = json.load(f)
+    #                 try:
+    #                     if 'pipeline_rank' in pipeline:
+    #                         ranked_list.append((pipeline['pipeline_rank'], filename))
+    #                     else:
+    #                         # Move pipelines without scores to pipelines_searched directory
+    #                         self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
+    #                         shutil.move(filepath, self.config.pipelines_searched_dir)
+    #                 except:
+    #                     self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
+    #     if not ranked_list:
+    #         self._logger.warning('No ranked pipelines found.')
+    #         return
 
-        # Copy top 20 pipelines to pipelines_ranked directory
-        sorted(ranked_list, key=operator.itemgetter(0))
-        for _, filename in ranked_list[:20]:
-            shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
+    #     # Copy top 20 pipelines to pipelines_ranked directory
+    #     sorted(ranked_list, key=operator.itemgetter(0))
+    #     for _, filename in ranked_list[:20]:
+    #         shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
 
-    def _process_pipeline_submission_old2(self) -> None:
-        output_dir = os.path.dirname(self.output_pipelines_dir)
-        print("[PROSKA]:", output_dir)
-        pipelines_root: str = os.path.join(output_dir, 'pipelines')
-        executables_root: str = os.path.join(output_dir, 'executables')
-        supporting_root: str = os.path.join(output_dir, 'supporting_files')
-        # os.path.join(os.path.dirname(executables_root), 'pipelines')
+    # def _process_pipeline_submission_old2(self) -> None:
+    #     output_dir = os.path.dirname(self.output_pipelines_dir)
+    #     print("[PROSKA]:", output_dir)
+    #     pipelines_root: str = os.path.join(output_dir, 'pipelines')
+    #     executables_root: str = os.path.join(output_dir, 'executables')
+    #     supporting_root: str = os.path.join(output_dir, 'supporting_files')
+    #     # os.path.join(os.path.dirname(executables_root), 'pipelines')
 
-        # Read all the json files in the pipelines
-        piplines_name_list = os.listdir(pipelines_root)
-        if len(piplines_name_list) < 20:
-            for name in piplines_name_list:
-                try:
-                    with open(os.path.join(pipelines_root, name)) as f:
-                        rank = json.load(f)['pipeline_rank']
-                except:
-                    os.remove(os.path.join(pipelines_root, name))
-            return
+    #     # Read all the json files in the pipelines
+    #     piplines_name_list = os.listdir(pipelines_root)
+    #     if len(piplines_name_list) < 20:
+    #         for name in piplines_name_list:
+    #             try:
+    #                 with open(os.path.join(pipelines_root, name)) as f:
+    #                     rank = json.load(f)['pipeline_rank']
+    #             except:
+    #                 os.remove(os.path.join(pipelines_root, name))
+    #         return
 
-        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
-        for name in piplines_name_list:
-            try:
-                with open(os.path.join(pipelines_root, name)) as f:
-                    rank = json.load(f)['pipeline_rank']
-                pipelines_df.at[name, 'rank'] = rank
-            except:
-                os.remove(os.path.join(pipelines_root, name))
+    #     pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+    #     for name in piplines_name_list:
+    #         try:
+    #             with open(os.path.join(pipelines_root, name)) as f:
+    #                 rank = json.load(f)['pipeline_rank']
+    #             pipelines_df.at[name, 'rank'] = rank
+    #         except:
+    #             os.remove(os.path.join(pipelines_root, name))
 
 
-        # sort them based on their rank field
-        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
+    #     # sort them based on their rank field
+    #     pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
 
-        # make sure that "pipeline_considered" directory exists
-        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
-        try:
-            os.mkdir(considered_root)
-        except FileExistsError:
-            pass
+    #     # make sure that "pipeline_considered" directory exists
+    #     considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+    #     try:
+    #         os.mkdir(considered_root)
+    #     except FileExistsError:
+    #         pass
 
-        # pick the top 20 and move the rest to "pipeline_considered" directory
-        for name in pipelines_df.index[20:]:
-            os.rename(src=os.path.join(pipelines_root, name),
-                      dst=os.path.join(considered_root, name))
+    #     # pick the top 20 and move the rest to "pipeline_considered" directory
+    #     for name in pipelines_df.index[20:]:
+    #         os.rename(src=os.path.join(pipelines_root, name),
+    #                   dst=os.path.join(considered_root, name))
 
-        # delete the exec and supporting files related the moved pipelines
-        for name in pipelines_df.index[20:]:
-            pipeName = name.split('.')[0]
-            try:
-                os.remove(os.path.join(executables_root, pipeName + '.json'))
-            except FileNotFoundError:
-                traceback.print_exc()
-                pass
+    #     # delete the exec and supporting files related the moved pipelines
+    #     for name in pipelines_df.index[20:]:
+    #         pipeName = name.split('.')[0]
+    #         try:
+    #             os.remove(os.path.join(executables_root, pipeName + '.json'))
+    #         except FileNotFoundError:
+    #             traceback.print_exc()
+    #             pass
 
-            try:
-                shutil.rmtree(os.path.join(supporting_root, pipeName))
-            except FileNotFoundError:
-                traceback.print_exc()
-                pass
+    #         try:
+    #             shutil.rmtree(os.path.join(supporting_root, pipeName))
+    #         except FileNotFoundError:
+    #             traceback.print_exc()
+    #             pass
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
-        self._search_method.initialize_problem(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            start_time=self.config.start_time,
-            timeout_sec=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
+        self._initialize_search_method()
         # report = self._search_method.search(num_iter=50)
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-    def _run_ParallelBaseSearch(self, report_ensemble):
+    def _initialize_search_method(self):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
             test_dataset1=self.test_dataset1,
@@ -464,85 +450,72 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
+
+    def _run_ParallelBaseSearch(self, report_ensemble):
+        self._initialize_search_method()
+
         report = self._search_method.search(num_iter=1000)
-
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
         self._search_method.job_manager.reset()
 
-    def _run_RandomDimSearch(self, report_ensemble):
-        # !! Need to updated
-        self._search_method = RandomDimensionalSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=10)
-        if report_ensemble:
-            report_ensemble['report'] = report
-        self._log_search_results(report=report)
+    # def _run_RandomDimSearch(self, report_ensemble):
+    #     # !! Need to updated
+    #     self._search_method = RandomDimensionalSearch(
+    #         template_list=self.template,
+    #         performance_metrics=self.config.problem['problem']['performance_metrics'],
+    #         problem=self.config.problem,
+    #         test_dataset1=self.test_dataset1,
+    #         train_dataset1=self.train_dataset1,
+    #         test_dataset2=self.test_dataset2,
+    #         train_dataset2=self.train_dataset2,
+    #         all_dataset=self.all_dataset,
+    #         ensemble_tuning_dataset=self.ensemble_dataset,
+    #         output_directory=self.config.output_dir,
+    #         log_dir=self.config.log_dir,
+    #         num_proc=self.config.cpu,
+    #         timeout=self.config.timeout_search,
+    #         extra_primitive=self.extra_primitive,
+    #     )
+    #     report = self._search_method.search(num_iter=10)
+    #     if report_ensemble:
+    #         report_ensemble['report'] = report
+    #     self._log_search_results(report=report)
 
-        self._search_method.job_manager.reset()
+    #     self._search_method.job_manager.reset()
 
-    def _run_BanditDimSearch(self, report_ensemble):
-        # !! Need to updated
-        self._search_method = BanditDimensionalSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            start_time=self.config.start_time,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=5)
-        if report_ensemble:
-            report_ensemble['report'] = report
-        self._log_search_results(report=report)
+    # def _run_BanditDimSearch(self, report_ensemble):
+    #     # !! Need to updated
+    #     self._search_method = BanditDimensionalSearch(
+    #         template_list=self.template,
+    #         performance_metrics=self.config.problem['problem']['performance_metrics'],
+    #         problem=self.config.problem,
+    #         test_dataset1=self.test_dataset1,
+    #         train_dataset1=self.train_dataset1,
+    #         test_dataset2=self.test_dataset2,
+    #         train_dataset2=self.train_dataset2,
+    #         all_dataset=self.all_dataset,
+    #         ensemble_tuning_dataset = self.ensemble_dataset,
+    #         output_directory=self.config.output_dir,
+    #         log_dir=self.config.log_dir,
+    #         num_proc=self.config.cpu,
+    #         start_time=self.config.start_time,
+    #         timeout=self.config.timeout_search,
+    #         extra_primitive=self.extra_primitive,
+    #     )
+    #     report = self._search_method.search(num_iter=5)
+    #     if report_ensemble:
+    #         report_ensemble['report'] = report
+    #     self._log_search_results(report=report)
 
-        self._search_method.job_manager.reset()
+    #     self._search_method.job_manager.reset()
 
     def _run_MultiBanditSearch(self, report_ensemble):
         # !! Need to updated
-        self._search_method = MultiBanditSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            start_time=self.config.start_time,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=30)
+        self._initialize_search_method()
+        report = self._search_method.search(num_iter=100)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -607,9 +580,10 @@ class Controller:
             if graph_size and graph_size > max_accept_graph_size_for_parallel:
                 self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
                 self.config.search_method = "serial"
-            if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-                self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-                self.config.search_method = "serial"
+            # kyao 2019-7-24: Try parallel
+            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
+            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
+            #     self.config.search_method = "serial"
 
         except:
             pass
@@ -620,8 +594,8 @@ class Controller:
             use_multiprocessing = False
         elif self.config.search_method == 'parallel':
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
-        # elif self.config.search_method == 'bandit':
-        #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
+        elif self.config.search_method == 'bandit':
+            self._search_method = MultiBanditSearch(num_proc=self.config.cpu)
         else:
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
 
@@ -664,7 +638,7 @@ class Controller:
             for each in each_domain.values():
                 keywords.extend(each)
 
-        keywrods = list(set(keywords))
+        keywords = list(set(keywords))
 
         variables = []
 
@@ -707,7 +681,7 @@ class Controller:
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
         search_result_list = all_results1[:5]
-        augment_res_list = []
+        # augment_res_list = []
         for search_res in search_result_list:
             try:
                 hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
@@ -1085,12 +1059,13 @@ class Controller:
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
-        self.template = self.template_library.get_templates(self.config.task_type,
-                                                            self.config.task_subtype,
-                                                            self.taskSourceType,
-                                                            self.specialized_problem)
+
+        self.template_list = self.template_library.get_templates(self.config.task_type,
+                                                                 self.config.task_subtype,
+                                                                 self.taskSourceType,
+                                                                 self.specialized_problem)
         # find the maximum dataset split requirements
-        for each_template in self.template:
+        for each_template in self.template_list:
             for each_step in each_template.template['steps']:
                 if "runtime" in each_step and "test_validation" in each_step["runtime"]:
                     split_times = int(each_step["runtime"]["test_validation"])
@@ -1108,11 +1083,11 @@ class Controller:
             return dataset
 
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
-        targets = list(dataset.metadata.list_columns_with_semantic_types(
-            ['https://metadata.datadrivendiscovery.org/types/TrueTarget'],
-            at=(resID,),
-        ))
-        colIndex = targets[0]
+        # targets = list(dataset.metadata.list_columns_with_semantic_types(
+        #     ['https://metadata.datadrivendiscovery.org/types/TrueTarget'],
+        #     at=(resID,),
+        # ))
+        # colIndex = targets[0]
 
         # TODO: update to use D3M's method to accelerate the processing speed
 
@@ -1154,8 +1129,8 @@ class Controller:
             return dataset_with_new_meta
         '''
         task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
-        res_id = self.problem_info["res_id"]
-        target_index = self.problem_info["target_index"]
+        # res_id = self.problem_info["res_id"]
+        # target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
 
         cannot_split = False
@@ -1441,7 +1416,7 @@ class Controller:
         Generate and train pipelines.
         """
         logging.getLogger("d3m").setLevel(logging.ERROR)
-        if not self.template:
+        if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
 
         self.generate_dataset_splits()
@@ -1749,7 +1724,7 @@ class Controller:
                 else:
                     dataset.save((dataset_dir / "datasetDoc.json").as_uri())
         except Exception:
-            logger.debug("Failed to save dataset splits", exc_info=True)
+            self._logger.debug("Failed to save dataset splits", exc_info=True)
 
     # Methods used by TA3
 

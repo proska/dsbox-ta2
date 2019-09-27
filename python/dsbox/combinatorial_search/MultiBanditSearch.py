@@ -36,50 +36,29 @@ class MultiBanditSearch(TemplateSpaceParallelBaseSearch[T]):
     a while
     """
 
-    def __init__(self, template_list: typing.List[DSBoxTemplate],
-                 performance_metrics: typing.List[typing.Dict],
-                 problem: Metadata, train_dataset1: Dataset,
-                 train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
-                 test_dataset2: typing.List[Dataset], all_dataset: Dataset,
-                 ensemble_tuning_dataset: Dataset,
-                 extra_primitive:typing.Set[str],
-                 output_directory: str, log_dir: str, timeout: int = 55, num_proc: int = 4) -> None:
-
-        # Use first metric from test
-        TemplateSpaceParallelBaseSearch.__init__(
-            self=self,
-            template_list=template_list,
-            performance_metrics=performance_metrics,
-            problem=problem, train_dataset1=train_dataset1,
-            train_dataset2=train_dataset2, test_dataset1=test_dataset1,
-            test_dataset2=test_dataset2, all_dataset=all_dataset, ensemble_tuning_dataset = ensemble_tuning_dataset,
-            extra_primitive = extra_primitive,
-            log_dir=log_dir, output_directory=output_directory, timeout=timeout, num_proc=num_proc)
-
-        # UCT scores holder
-        # self.uct_score = dict(map(lambda t: (t, None), template_list))
+    def __init__(self, num_proc):
+        super().__init__(num_proc=num_proc)
 
     def _select_next_template(self, num_iter=2) -> \
             typing.Tuple[ConfigurationSpaceBaseSearch, str]:
 
         yield from self._bandit_select_next_template(num_iter)
 
-    def _bandit_select_next_template(self, num_iter):
+    def _bandit_select_next_template(self, num_iter: int) -> ConfigurationSpaceBaseSearch:
         # initial evaluation
         for search in self.confSpaceBaseSearch:
             # yield search, "random"
-            yield search, "random"
+            yield search
+        _logger.info(f'Finished random phase, start sampling based on UCT score')
         # UCT based evaluation
         for _ in range(num_iter):
-            # while True:
-            # print("$" * 100)
-            # print(self.history)
-            # print("$" * 100)
             _choices, _weights = self._update_UCT_score()
             selected = random_choices_without_replacement(_choices, _weights, 1)
-            yield selected[0], "bandit"
+            yield selected[0]
 
     def _update_UCT_score(self) -> typing.Tuple[ConfigurationSpaceBaseSearch, typing.Dict]:
+
+        _logger.debug(f'execution history table for templates:\n{self.history}')
 
         try:
             normalize = self.history.normalize()
@@ -95,7 +74,7 @@ class MultiBanditSearch(TemplateSpaceParallelBaseSearch[T]):
         uct_score = {}
         # compute all the uct scores
         for t_name, row in normalize.iterrows():
-            uct_score[t_name] = MultiBanditSearch.compute_UCT(history=row,
+            uct_score[t_name] = MultiBanditSearch.compute_uct(history=row,
                                                               total_run=total_run,
                                                               total_time=total_time)
 
@@ -113,67 +92,46 @@ class MultiBanditSearch(TemplateSpaceParallelBaseSearch[T]):
 
         return _choices, _weights
 
-    def search(self, num_iter: int=2) -> typing.Dict:
-        """
-        runs the random search for each compatible template and returns the report of the best
-        template evaluated. In each iteration the method randomly sample one of the templates
-        from the template list based on their UCT score and runs random search on the template.
-        Args:
-            num_iter:
-            Number of iterations of dim search.
-        Returns:
-            the report related to the best template (only the evaluated templates not the whole
-            list)
-        """
-        # the actual search goes here
-        self._search_templates(num_iter=num_iter)
+    def _push_random_candidates(self, num_iter: int):
+        super()._push_random_candidates(num_iter)
 
-        # cleanup the caches and cache manager
-        self.cacheManager.cleanup()
+    # def _search_templates(self, num_iter: int = 2) -> None:
+    #     """
+    #     runs the random search for each compatible template and returns the report of the best
+    #     template evaluated. In each iteration the method randomly sample one of the templates
+    #     from the template list based on their UCT score and runs random search on the template.
+    #     Args:
+    #         num_iter:
+    #
+    #     Returns:
+    #
+    #     """
+    #     max_stalled_rounds = 3
+    #     template_iter = self._select_next_template(num_iter=num_iter)
+    #     for i, (search, mode) in enumerate(template_iter):
+    #         templ_name = search.template.template['name']
+    #         _logger.info(f"Using mode:({mode}), Selected Template: {templ_name}")
+    #         self._random_pipeline_evaluation_push(search=search,
+    #                                               num_iter=self.job_manager.proc_num)
+    #         if self._stall_pushing(i, max_stalled_rounds):
+    #             self._get_evaluation_results(max_num=self.job_manager.proc_num *
+    #                                                  (max_stalled_rounds-1))
+    #
+    #         assert (self.job_manager.ongoing_jobs <=
+    #                 self.job_manager.proc_num * max_stalled_rounds), \
+    #             f"a lot of jobs in the queue, ongoing:{self.job_manager.ongoing_jobs}"
+    #
+    #     self._get_evaluation_results()
 
-        # cleanup job manager
-        self.job_manager.reset()
-
-        return self.history.get_best_history()
-
-    def _search_templates(self, num_iter: int = 2) -> None:
-        """
-        runs the random search for each compatible template and returns the report of the best
-        template evaluated. In each iteration the method randomly sample one of the templates
-        from the template list based on their UCT score and runs random search on the template.
-        Args:
-            num_iter:
-
-        Returns:
-
-        """
-        max_stalled_rounds = 3
-        template_iter = self._select_next_template(num_iter=num_iter)
-        for i, (search, mode) in enumerate(template_iter):
-            print("#" * 50)
-            print(f"[INFO] Selected Template: {search.template.template['name']}")
-            print("$" * 100)
-            self._random_pipeline_evaluation_push(search=search,
-                                                  num_iter=self.job_manager.proc_num)
-            if self._stall_pushing(i, max_stalled_rounds):
-                self._get_evaluation_results(max_num=self.job_manager.proc_num *
-                                                     (max_stalled_rounds-1))
-
-            assert (self.job_manager.ongoing_jobs <=
-                    self.job_manager.proc_num * max_stalled_rounds), \
-                f"a lot of jobs in the queue, ongoing:{self.job_manager.ongoing_jobs}"
-
-        self._get_evaluation_results()
-
-    def _stall_pushing(self, i, max_stalled_rounds):
-        proc_num = self.job_manager.proc_num
-        ongoing = self.job_manager.ongoing_jobs
-        return (ongoing >= proc_num*max_stalled_rounds)
+    # def _stall_pushing(self, i, max_stalled_rounds):
+    #     proc_num = self.job_manager.proc_num
+    #     ongoing = self.job_manager.ongoing_jobs
+    #     return (ongoing >= proc_num*max_stalled_rounds)
         # return ((i > 0) and (i % max_stalled_rounds == 0)) or \
         #        (self.job_manager.ongoing_jobs >= self.job_manager.proc_num * max_stalled_rounds)
 
     @staticmethod
-    def compute_UCT(history: typing.Union[pd.Series, pd.DataFrame, typing.Dict],
+    def compute_uct(history: typing.Union[pd.Series, pd.DataFrame, typing.Dict],
                     total_time: float, total_run: float) -> float:
         beta = 10
         gamma = 1

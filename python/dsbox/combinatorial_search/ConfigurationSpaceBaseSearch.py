@@ -166,7 +166,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         evaluation_result = None
 
         try:
-            _logger.info(f"START Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
+            _logger.info(f"Evaluate template {self.template.template['name']} {hash(str(configuration))}")
 
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
@@ -174,6 +174,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             _logger.info(f"END Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
         except Exception as exc:
+            _logger.error(f'Pipline failed with error: {exc}')
             raise RuntimeError(f'Failed template {self.template.template["name"]}') from exc
 
         return evaluation_result
@@ -285,7 +286,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             if self.testing_mode == Mode.TRAIN_TEST_MODE:
                 self._repeat_times_level_1 = int(self.validation_config['test_validation'])
 
-            _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(self._repeat_times_level_2))
+            _logger.info("Will use normal train-test mode (n={}) to choose best primitives.".format(self._repeat_times_level_2))
 
             training_metrics = []
             test_metrics = []
